@@ -1,6 +1,10 @@
 #include "SFML/Window.hpp"
 #include "SFML/System.hpp"
-#include "tile.hpp"
+#include "Cell.hpp"
+#include <map>
+#include <iostream>
+
+sf::Sprite Cell::originalSprite = sf::Sprite();
 
 int main() {
   const int width = 1200;
@@ -19,19 +23,31 @@ int main() {
 
   // Load images //
 
-  Tile blankTile("tiles/demo/blank.png");
-  Tile downTile("tiles/demo/down.png");
-  Tile leftTile("tiles/demo/left.png");
-  Tile rightTile("tiles/demo/right.png");
-  Tile upTile("tiles/demo/up.png");
-
-  blankTile.setPosition(0.f, 0.f);
-  downTile.setPosition(0.f, 200.f);
-  leftTile.setPosition(0.f, 400.f);
-  rightTile.setPosition(0.f, 600.f);
-  upTile.setPosition(rightTile.width(), 0.f);
+  std::map<TileType, Tile> tileMap {
+    { TileType::BLANK, Tile("tiles/demo/blank.png") },
+    { TileType::DOWN,  Tile("tiles/demo/down.png")  },
+    { TileType::LEFT,  Tile("tiles/demo/left.png")  },
+    { TileType::RIGHT, Tile("tiles/demo/right.png") },
+    { TileType::UP,    Tile("tiles/demo/up.png")    }
+  };
 
   /////////////////
+
+  // Initialize cells //
+
+  const int DIM = 2;
+  const float w = (float) width / DIM;
+  const float h = (float) height / DIM;
+
+  Cell::setSize(w, h, tileMap.at(TileType::BLANK).texturePtr->getSize());
+
+  std::vector<Cell> grid(DIM * DIM);
+
+  for (int i = 0; i < grid.size(); i++) {
+    grid[i] = Cell();
+  }
+
+  //////////////////////
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -50,11 +66,28 @@ int main() {
 
     // draw everything here...
 
-    renderTexture.draw(blankTile.get());
-    renderTexture.draw(downTile.get());
-    renderTexture.draw(leftTile.get());
-    renderTexture.draw(rightTile.get());
-    renderTexture.draw(upTile.get());
+    for (int j = 0; j < DIM; j++) {
+      for (int i = 0; i < DIM; i++) {
+        Cell cell = grid[i + j * DIM];
+
+        if (cell.isCollapsed()) {
+          const sf::Texture tileTexture = *tileMap.at(cell.getLastOption()).texturePtr;
+
+          renderTexture.draw(cell.setTexture(tileTexture));
+        } else {
+          // A rectangle with color to draw
+          sf::RectangleShape rect;
+          rect.setSize(sf::Vector2f(w, h));
+          rect.setPosition(i * w, j * h);
+          rect.setFillColor(sf::Color(31, 30, 31));
+          rect.setOutlineColor(sf::Color::White);
+          rect.setOutlineThickness(1.0f);
+
+          // Draw the rectangle on the render texture
+          renderTexture.draw(rect);
+        }
+      }
+    }
 
     window.draw(canvasSprite);
 
