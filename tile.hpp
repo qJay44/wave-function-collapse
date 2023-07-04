@@ -4,13 +4,10 @@
 
 struct Tile {
   public:
-    const sf::Texture *texturePtr = &texture;
+    sf::Texture texture;
 
     Tile(const std::string &path){
       this->texture.loadFromFile(path);
     }
-
-  private:
-    sf::Texture texture;
 };
 

@@ -4,53 +4,43 @@
 
 struct Cell {
   public:
-    static sf::Sprite originalSprite;
+    sf::Sprite sprite;
 
-    static void setSize(
-        const float& width,
-        const float& height,
-        const sf::Vector2u& textureSize
-      ) {
-      const float spriteScaledWidth = width / textureSize.x;
-      const float spriteScaledHeight = height / textureSize.y;
+    Cell() {}
 
-      originalSprite.setScale(spriteScaledWidth, spriteScaledHeight);
+    Cell(const float& scaleX, const float& scaleY) {
+      sprite.setScale(scaleX, scaleY);
     }
 
-    Cell() {
-      this->sprite = originalSprite;
+    void temp() {
+      options.pop_back();
+      if (options.size() == 1)
+        collapsed = true;
     }
 
-    const sf::Sprite& setTexture(const sf::Texture &texture) {
-      this->sprite.setTexture(texture);
-
-      return this->sprite;
+    void setSingleOption(TileType option) {
+      options.clear();
+      options.push_back(option);
+      collapsed = true;
     }
 
-    void removeValue(const TileType &type) {
-      if (this->options.size() == 1)
-        this->collapsed = true;
-
-      options.erase(
-          std::remove(options.begin(), options.end(), type),
-          options.end()
-      );
+    const int getOptionsSize() const {
+      return options.size();
     }
 
     const TileType getLastOption() const {
-      if (this->options.size() > 1)
+      if (options.size() > 1)
         throw std::runtime_error("There are more than one option to get");
 
       return options[0];
     }
 
     const bool& isCollapsed() const {
-      return this->collapsed;
+      return collapsed;
     }
 
   private:
     bool collapsed = false;
-    sf::Sprite sprite;
     std::vector<TileType> options {
       TileType::BLANK,
       TileType::DOWN,

@@ -3,10 +3,16 @@
 #include "Cell.hpp"
 #include <map>
 #include <iostream>
+#include <stdlib.h>
+#include <iterator>
 
-sf::Sprite Cell::originalSprite = sf::Sprite();
+int random(int min, int max) {
+  return min + rand() % ((max + 1) - min);
+}
 
 int main() {
+  srand((unsigned)time(NULL));
+
   const int width = 1200;
   const int height = 900;
 
@@ -39,12 +45,18 @@ int main() {
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
-  Cell::setSize(w, h, tileMap.at(TileType::BLANK).texturePtr->getSize());
+  const sf::Vector2u textureSize = tileMap.at(TileType::BLANK).texture.getSize();
+  const float scaleX = w / textureSize.x;
+  const float scaleY = h / textureSize.y;
 
   std::vector<Cell> grid(DIM * DIM);
 
   for (int i = 0; i < grid.size(); i++) {
-    grid[i] = Cell();
+    grid[i] = Cell(scaleX, scaleY);
+  }
+
+  for (int i = 0; i < 4; i++) {
+    grid[0].temp();
   }
 
   //////////////////////
@@ -66,14 +78,47 @@ int main() {
 
     // draw everything here...
 
+    // Sort grid with least entrory
+    std::sort(grid.begin(), grid.end(), [&](Cell obj1, Cell obj2) {
+      return obj1.getOptionsSize() < obj2.getOptionsSize();
+    });
+
+    // Create collection with the same (minimal) entropy //
+
+    std::vector<Cell*> gridMinEntropy;
+    const int len = grid[0].getOptionsSize();
+
+    for (int i = 0; i < grid.size(); i++) {
+      if (grid[i].getOptionsSize() > len)
+        break;
+      else
+        gridMinEntropy.push_back(&grid[i]);
+    }
+
+    ///////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////
+    // Pick random cell with least entropy    //
+    // and randomly set a single option to it //
+    //                                        //
+
+    auto tileMapIter = tileMap.begin();
+    std::advance(tileMapIter, random(0, tileMap.size() - 1));
+    gridMinEntropy[random(0, gridMinEntropy.size() - 1)]->setSingleOption(tileMapIter->first);
+
+    ////////////////////////////////////////////
+
+
     for (int j = 0; j < DIM; j++) {
       for (int i = 0; i < DIM; i++) {
         Cell cell = grid[i + j * DIM];
 
         if (cell.isCollapsed()) {
-          const sf::Texture tileTexture = *tileMap.at(cell.getLastOption()).texturePtr;
+          const sf::Texture tileTexture = tileMap.at(cell.getLastOption()).texture;
+          cell.sprite.setTexture(tileTexture);
+          cell.sprite.setPosition(i * w, j * h);
 
-          renderTexture.draw(cell.setTexture(tileTexture));
+          renderTexture.draw(cell.sprite);
         } else {
           // A rectangle with color to draw
           sf::RectangleShape rect;
