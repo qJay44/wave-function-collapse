@@ -2,13 +2,10 @@
 #include "SFML/System.hpp"
 #include "Cell.hpp"
 #include <map>
-#include <iostream>
-#include <stdlib.h>
 #include <iterator>
-
-int random(int min, int max) {
-  return min + rand() % ((max + 1) - min);
-}
+#include <string>
+#include <vector>
+#include <fstream>
 
 int main() {
   srand((unsigned)time(NULL));
@@ -27,14 +24,61 @@ int main() {
   const sf::Texture &canvasTexture = renderTexture.getTexture();
   sf::Sprite canvasSprite(canvasTexture);
 
-  // Load images //
+  // Load images and set rules (all going clockwise) //
+
+  /*
+   * ABOVE
+   * RIGHT
+   * BELOW
+   * LEFT
+   */
 
   std::map<TileType, Tile> tileMap {
-    { TileType::BLANK, Tile("tiles/demo/blank.png") },
-    { TileType::DOWN,  Tile("tiles/demo/down.png")  },
-    { TileType::LEFT,  Tile("tiles/demo/left.png")  },
-    { TileType::RIGHT, Tile("tiles/demo/right.png") },
-    { TileType::UP,    Tile("tiles/demo/up.png")    }
+    { TileType::BLANK, Tile("tiles/demo/blank.png",
+        std::vector<std::vector<TileType>> {
+          { TileType::BLANK, TileType::UP    }, // ABOVE
+          { TileType::BLANK, TileType::RIGHT }, // RIGHT
+          { TileType::BLANK, TileType::DOWN  }, // BELOW
+          { TileType::BLANK, TileType::LEFT  }, // LEFT
+        }
+      )
+    },
+    { TileType::UP, Tile("tiles/demo/up.png",
+        std::vector<std::vector<TileType>> {
+          { TileType::RIGHT, TileType::LEFT, TileType::DOWN    },
+          { TileType::LEFT,  TileType::UP,   TileType::DOWN    },
+          { TileType::BLANK, TileType::DOWN                    },
+          { TileType::RIGHT, TileType::UP,   TileType::DOWN    }
+        }
+      )
+    },
+    { TileType::RIGHT, Tile("tiles/demo/right.png",
+        std::vector<std::vector<TileType>> {
+          { TileType::RIGHT, TileType::LEFT, TileType::DOWN    },
+          { TileType::LEFT,  TileType::UP,   TileType::DOWN    },
+          { TileType::RIGHT, TileType::LEFT, TileType::UP      },
+          { TileType::BLANK, TileType::LEFT                    },
+        }
+      )
+    },
+    { TileType::DOWN,  Tile("tiles/demo/down.png",
+        std::vector<std::vector<TileType>> {
+          { TileType::BLANK, TileType::UP                      },
+          { TileType::LEFT,  TileType::UP,   TileType::DOWN    },
+          { TileType::RIGHT, TileType::LEFT, TileType::UP      },
+          { TileType::RIGHT, TileType::UP,   TileType::DOWN    }
+        }
+      )
+    },
+    { TileType::LEFT,  Tile("tiles/demo/left.png",
+        std::vector<std::vector<TileType>> {
+          { TileType::RIGHT, TileType::LEFT,   TileType::DOWN  },
+          { TileType::BLANK, TileType::RIGHT                   },
+          { TileType::RIGHT, TileType::LEFT,   TileType::UP    },
+          { TileType::UP,    TileType::DOWN,   TileType::RIGHT }
+        }
+      )
+    },
   };
 
   /////////////////
@@ -49,17 +93,11 @@ int main() {
   const float scaleX = w / textureSize.x;
   const float scaleY = h / textureSize.y;
 
-  std::vector<Cell> grid(DIM * DIM);
-
-  for (int i = 0; i < grid.size(); i++) {
-    grid[i] = Cell(scaleX, scaleY);
-  }
-
-  for (int i = 0; i < 4; i++) {
-    grid[0].temp();
-  }
+  std::vector<Cell> grid(DIM * DIM, Cell(scaleX, scaleY));
 
   //////////////////////
+  bool nextStep = true;
+  int stepCount = 0;
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -71,67 +109,173 @@ int main() {
         // "close requested" event: we close the window
         if (event.type == sf::Event::Closed)
             window.close();
+
+        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::J)) {
+          nextStep = true;
+          stepCount++;
+        }
     }
 
     // clear the window with black color
     window.clear(sf::Color(31, 30, 31));
 
     // draw everything here...
+    if (nextStep) {
+      nextStep = false;
 
-    // Sort grid with least entrory
-    std::sort(grid.begin(), grid.end(), [&](Cell obj1, Cell obj2) {
-      return obj1.getOptionsSize() < obj2.getOptionsSize();
-    });
+      for (int j = 0; j < DIM; j++) {
+        for (int i = 0; i < DIM; i++) {
+          Cell cell = grid[i + j * DIM];
 
-    // Create collection with the same (minimal) entropy //
+          if (cell.isCollapsed()) {
+            const sf::Texture tileTexture = tileMap.at(cell.getLastOption()).texture;
+            cell.sprite.setTexture(tileTexture);
+            cell.sprite.setPosition(i * w, j * h);
 
-    std::vector<Cell*> gridMinEntropy;
-    const int len = grid[0].getOptionsSize();
+            renderTexture.draw(cell.sprite);
+          } else {
+            // A rectangle with color to draw
+            sf::RectangleShape rect;
+            rect.setSize(sf::Vector2f(w, h));
+            rect.setPosition(i * w, j * h);
+            rect.setFillColor(sf::Color(31, 30, 31));
+            rect.setOutlineColor(sf::Color::White);
+            rect.setOutlineThickness(1.0f);
 
-    for (int i = 0; i < grid.size(); i++) {
-      if (grid[i].getOptionsSize() > len)
-        break;
-      else
-        gridMinEntropy.push_back(&grid[i]);
-    }
-
-    ///////////////////////////////////////////////////////
-
-    ////////////////////////////////////////////
-    // Pick random cell with least entropy    //
-    // and randomly set a single option to it //
-    //                                        //
-
-    auto tileMapIter = tileMap.begin();
-    std::advance(tileMapIter, random(0, tileMap.size() - 1));
-    gridMinEntropy[random(0, gridMinEntropy.size() - 1)]->setSingleOption(tileMapIter->first);
-
-    ////////////////////////////////////////////
-
-
-    for (int j = 0; j < DIM; j++) {
-      for (int i = 0; i < DIM; i++) {
-        Cell cell = grid[i + j * DIM];
-
-        if (cell.isCollapsed()) {
-          const sf::Texture tileTexture = tileMap.at(cell.getLastOption()).texture;
-          cell.sprite.setTexture(tileTexture);
-          cell.sprite.setPosition(i * w, j * h);
-
-          renderTexture.draw(cell.sprite);
-        } else {
-          // A rectangle with color to draw
-          sf::RectangleShape rect;
-          rect.setSize(sf::Vector2f(w, h));
-          rect.setPosition(i * w, j * h);
-          rect.setFillColor(sf::Color(31, 30, 31));
-          rect.setOutlineColor(sf::Color::White);
-          rect.setOutlineThickness(1.0f);
-
-          // Draw the rectangle on the render texture
-          renderTexture.draw(rect);
+            // Draw the rectangle on the render texture
+            renderTexture.draw(rect);
+          }
         }
       }
+
+      std::vector<Cell*> gridCopy;
+      for (Cell& cell : grid) {
+        gridCopy.push_back(&cell);
+      }
+
+      gridCopy.erase(std::remove_if(gridCopy.begin(), gridCopy.end(), [&](Cell* obj) {
+          return obj->isCollapsed();
+      }), gridCopy.end());
+
+      if (gridCopy.size() != 0) {
+        // Sort copy of the grid with least entrory
+        std::sort(gridCopy.begin(), gridCopy.end(), [&](Cell* obj1, Cell* obj2) {
+          return obj1->options.size() < obj2->options.size();
+        });
+
+        // Leave elemnts with the same (minimal) entropy //
+
+        const int len = gridCopy[0]->options.size();
+        int stopIndex = 0;
+        for (int i = 1; i < gridCopy.size(); i++) {
+          if (gridCopy[i]->options.size() > len) {
+            stopIndex = i;
+            break;
+          }
+        }
+
+        if (stopIndex > 0)
+          gridCopy.erase(gridCopy.begin() + stopIndex, gridCopy.end());
+
+        ///////////////////////////////////////////////////////
+
+        // Pick random cell with least entropy and randomly set option to it
+        gridCopy[random(0, gridCopy.size() - 1)]->setRandomOption();
+      }
+
+      std::vector<Cell> nextGrid(DIM * DIM);
+
+      print("//////////////// stepCount:" + std::to_string(stepCount) + " ////////////////");
+      for (int j = 0; j < DIM; j++) {
+        for (int i = 0; i < DIM; i++) {
+          int index = i + j * DIM;
+          if (grid[index].isCollapsed())
+            nextGrid[index] = grid[index];
+          else {
+            std::vector<TileType> currOptions {
+              TileType::BLANK,
+              TileType::UP,
+              TileType::RIGHT,
+              TileType::DOWN,
+              TileType::LEFT
+            };
+
+            // Look above
+            if (j > 0) {
+              Cell above = grid[i + (j - 1) * DIM];
+              std::vector<TileType> validOptions;
+              for (TileType option : above.options) {
+                std::vector<TileType> valid = tileMap[option].rules[2];
+                validOptions.insert(validOptions.end(), valid.begin(), valid.end());
+              }
+              Cell::validateOptions(currOptions, validOptions);
+            }
+
+            // Look right
+            if (i < DIM - 1) {
+              Cell right = grid[i + 1 + j * DIM];
+              std::vector<TileType> validOptions;
+              for (TileType option : right.options) {
+                std::vector<TileType> valid = tileMap[option].rules[3];
+                validOptions.insert(validOptions.end(), valid.begin(), valid.end());
+              }
+              Cell::validateOptions(currOptions, validOptions);
+            }
+
+            // Look down
+            if (j < DIM - 1) {
+              Cell down = grid[i + (j + 1) * DIM];
+              std::vector<TileType> validOptions;
+              for (TileType option : down.options) {
+                std::vector<TileType> valid = tileMap[option].rules[0];
+                validOptions.insert(validOptions.end(), valid.begin(), valid.end());
+              }
+              Cell::validateOptions(currOptions, validOptions);
+            }
+
+            // Look left
+            if (i > 0) {
+              Cell left = grid[i - 1 + j * DIM];
+              std::vector<TileType> validOptions;
+              for (TileType option : left.options) {
+                std::vector<TileType> valid = tileMap[option].rules[1];
+                validOptions.insert(validOptions.end(), valid.begin(), valid.end());
+              }
+              Cell::validateOptions(currOptions, validOptions);
+            }
+
+            if (true) {
+
+              print("/////");
+              print(i);
+              print(j);
+              for (TileType opt : currOptions) {
+                switch (opt) {
+                  case TileType::BLANK:
+                    print("Blank");
+                    break;
+                  case TileType::UP:
+                    print("Up");
+                    break;
+                  case TileType::RIGHT:
+                    print("Right");
+                    break;
+                  case TileType::DOWN:
+                    print("Down");
+                    break;
+                  case TileType::LEFT:
+                    print("Left");
+                    break;
+                }
+              }
+              print("/////");
+            }
+            nextGrid[index] = Cell(scaleX, scaleY, currOptions);
+          }
+        }
+      }
+
+      grid = nextGrid;
     }
 
     window.draw(canvasSprite);
@@ -141,5 +285,19 @@ int main() {
   }
 
   return 0;
+}
+
+int random(int min, int max) {
+  return min + rand() % ((max + 1) - min);
+}
+
+template<typename T>
+void print(T msg) {
+  std::cout << msg << "\n";
+}
+
+void print(std::vector<Cell> cells) {
+  for (const Cell& cell : cells)
+    std::cout << cell.options.size() << "\n";
 }
 

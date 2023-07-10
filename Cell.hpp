@@ -1,10 +1,19 @@
 #include "tile.hpp"
+#include "utils.hpp"
 #include <stdexcept>
 #include <vector>
+#include <iostream>
 
-struct Cell {
+class Cell {
   public:
     sf::Sprite sprite;
+    std::vector<TileType> options {
+      TileType::BLANK,
+      TileType::DOWN,
+      TileType::LEFT,
+      TileType::RIGHT,
+      TileType::UP,
+    };
 
     Cell() {}
 
@@ -12,20 +21,31 @@ struct Cell {
       sprite.setScale(scaleX, scaleY);
     }
 
-    void temp() {
-      options.pop_back();
-      if (options.size() == 1)
-        collapsed = true;
+    Cell(
+      const float& scaleX,
+      const float& scaleY,
+      std::vector<TileType> options,
+      bool collapsed = false
+    ) : options(options), collapsed(collapsed) {
+      sprite.setScale(scaleX, scaleY);
     }
 
-    void setSingleOption(TileType option) {
+    static void validateOptions(std::vector<TileType>& currOptions, std::vector<TileType>& validOptions) {
+      for (TileType opt : currOptions) {
+        if (std::find(validOptions.begin(), validOptions.end(), opt) == validOptions.end())
+          currOptions.erase(std::remove(currOptions.begin(), currOptions.end(), opt), currOptions.end());
+      }
+    }
+
+    void setRandomOption() {
+      TileType option = options[random(0, options.size() - 1)];
       options.clear();
       options.push_back(option);
       collapsed = true;
     }
 
-    const int getOptionsSize() const {
-      return options.size();
+    void printOptionsSize() const {
+      std::cout << options.size() << "\n";
     }
 
     const TileType getLastOption() const {
@@ -41,12 +61,5 @@ struct Cell {
 
   private:
     bool collapsed = false;
-    std::vector<TileType> options {
-      TileType::BLANK,
-      TileType::DOWN,
-      TileType::LEFT,
-      TileType::RIGHT,
-      TileType::UP,
-    };
 };
 

@@ -2,11 +2,15 @@
 #include "SFML/Graphics.hpp"
 #include "TileType.hpp"
 
-struct Tile {
+class Tile {
   public:
     sf::Texture texture;
+    const std::vector<std::vector<TileType>> rules;
 
-    Tile(const std::string &path){
+    Tile() {}
+
+    Tile(const std::string &path, const std::vector<std::vector<TileType>>& rules)
+      : rules(rules) {
       this->texture.loadFromFile(path);
     }
 };
