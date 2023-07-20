@@ -1,6 +1,5 @@
-#include <string>
 #include "SFML/Graphics.hpp"
-#include "TileType.hpp"
+#include "utils.hpp"
 
 class Tile {
   public:
