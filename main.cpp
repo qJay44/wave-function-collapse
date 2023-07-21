@@ -6,6 +6,10 @@
 #include <iterator>
 #include <string>
 #include <fstream>
+#include <stdexcept>
+#include <stdlib.h>
+#include <cstdlib>
+
 
 int main() {
   srand((unsigned)time(NULL));
@@ -14,11 +18,12 @@ int main() {
   const int height = 900;
 
   // create the window
-  sf::RenderWindow window(sf::VideoMode(width, height), "Wave function collapse");
+  sf::RenderWindow window(sf::VideoMode(width, height), "Wave function collapse", sf::Style::Close);
   window.setFramerateLimit(75);
 
   sf::RenderTexture renderTexture;
   renderTexture.create(width, height);
+  renderTexture.display();
 
   // Get the render texture and make sprite of it
   const sf::Texture &canvasTexture = renderTexture.getTexture();
@@ -85,7 +90,7 @@ int main() {
 
   // Initialize cells //
 
-  const int DIM = 20;
+  const int DIM = 50;
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
@@ -112,15 +117,16 @@ int main() {
         if (event.type == sf::Event::Closed)
             window.close();
 
+        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+            window.close();
+
         if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::J)) {
-          if (allowSteps) {
+          if (allowSteps)
             nextStep = true;
-          }
         }
 
-        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
+        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::S))
           allowSteps = !allowSteps;
-        }
 
         if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
           grid = std::vector<Cell>(DIM * DIM, Cell(scaleX, scaleY));
@@ -249,28 +255,27 @@ int main() {
           Cell cell = grid[i + j * DIM];
 
           if (cell.isCollapsed() && !cell.isDrawn) {
-            const sf::Texture tileTexture = tileMap.at(cell.getLastOption()).texture;
-            cell.sprite.setTexture(tileTexture);
-            cell.sprite.setPosition(i * w, j * h);
-            cell.isDrawn = true;
+              const sf::Texture& tileTexture = tileMap.at(cell.getLastOption()).texture;
+              cell.sprite.setTexture(tileTexture);
+              cell.sprite.setPosition(i * w, j * h);
+              cell.isDrawn = true;
 
-            renderTexture.draw(cell.sprite);
-          } else {
-            /* // A rectangle with color to draw */
-            /* sf::RectangleShape rect; */
-            /* rect.setSize(sf::Vector2f(w, h)); */
-            /* rect.setPosition(i * w, j * h); */
-            /* rect.setFillColor(sf::Color(31, 30, 31)); */
-            /* rect.setOutlineThickness(1.0f); */
+              renderTexture.draw(cell.sprite);
 
-            /* // Draw the rectangle on the render texture */
-            /* renderTexture.draw(rect); */
+              /* // A rectangle with color to draw */
+              /* sf::RectangleShape rect; */
+              /* rect.setSize(sf::Vector2f(w, h)); */
+              /* rect.setPosition(i * w, j * h); */
+              /* rect.setFillColor(sf::Color(31, 30, 31)); */
+              /* rect.setOutlineThickness(1.0f); */
+
+              /* // Draw the rectangle on the render texture */
+              /* renderTexture.draw(rect); */
           }
         }
       }
     }
 
-    renderTexture.display();
     window.draw(canvasSprite);
 
     // end the current frame
@@ -307,5 +312,7 @@ std::string getTileTypeString(TileType tileType) {
     case TileType::LEFT:
       return "Left";
   }
+
+  throw std::runtime_error("Got unknown tile type");
 }
 
