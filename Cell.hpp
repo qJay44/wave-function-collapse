@@ -1,52 +1,46 @@
 #include "tile.hpp"
+#include <numeric>
 #include <stdexcept>
 #include <string>
-#include <vector>
-#include <iostream>
-#include <set>
 
 class Cell {
   public:
     sf::Sprite sprite;
-    std::set<TileType> options {
-      TileType::BLANK,
-      TileType::DOWN,
-      TileType::LEFT,
-      TileType::RIGHT,
-      TileType::UP,
-    };
+    std::vector<int> options;
     bool isDrawn = false;
 
     Cell() {}
 
-    Cell(const float& scaleX, const float& scaleY) {
+    Cell(const float& scaleX, const float& scaleY, const int& optionsSize) {
       sprite.setScale(scaleX, scaleY);
+
+      options = std::vector<int>(optionsSize);
+      std::iota(options.begin(), options.end(), 0);
     }
 
     Cell(
       const float& scaleX,
       const float& scaleY,
-      std::set<TileType> options,
+      std::vector<int> options,
       bool collapsed = false
     ) : options(options), collapsed(collapsed) {
       sprite.setScale(scaleX, scaleY);
     }
 
-    static void validateOptions(std::set<TileType>& currOptions, std::set<TileType>& validOptions) {
-      for (TileType opt : currOptions) {
-        if (validOptions.find(opt) == validOptions.end())
-          currOptions.erase(opt);
-      }
+    static void validateOptions(std::vector<int>& currOptions, std::vector<int>& validOptions) {
+      currOptions.erase(std::remove_if(currOptions.begin(), currOptions.end(), [&](int opt) {
+        return std::count(validOptions.begin(), validOptions.end(), opt) == 0;
+      }), currOptions.end());
     }
 
     void setRandomOption() {
-      TileType option = *next(options.begin(), random(0, options.size() - 1));
+      int option = *next(options.begin(), random(0, options.size() - 1));
       options.clear();
-      options.insert(option);
+      options.push_back(option);
       collapsed = true;
     }
 
-    const TileType getLastOption() const {
+    const int getLastOption() const {
       if (options.size() > 1)
         throw std::runtime_error("There are more than one option to get");
 

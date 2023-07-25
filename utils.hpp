@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <string>
-#include "TileType.hpp"
+#include <vector>
 
 int random(int min, int max);
 
 template<typename T>
 void print(T msg);
-std::string getTileTypeString(TileType tileType);
+
+void printVector(std::vector<int>& vec, std::string name);
 

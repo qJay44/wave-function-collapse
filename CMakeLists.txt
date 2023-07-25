@@ -9,6 +9,6 @@ project(MyProject VERSION 1.0)
 
 find_package(SFML 2.6.0 COMPONENTS system window graphics REQUIRED)
 
-add_executable(MyProject main.cpp)
+add_executable(MyProject main.cpp utils.cpp)
 target_link_libraries(MyProject sfml-system sfml-window sfml-graphics)
 
