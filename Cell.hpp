@@ -1,4 +1,4 @@
-#include "tile.hpp"
+#include "Tile.hpp"
 #include <numeric>
 #include <stdexcept>
 #include <string>
@@ -27,20 +27,33 @@ class Cell {
       sprite.setScale(scaleX, scaleY);
     }
 
-    static void validateOptions(std::vector<int>& currOptions, std::vector<int>& validOptions) {
-      currOptions.erase(std::remove_if(currOptions.begin(), currOptions.end(), [&](int opt) {
+    void validateOptions(
+        const Cell& neighbour,
+        const std::vector<Tile>& tiles,
+        const std::string side
+    ) {
+      std::vector<int> validOptions;
+
+      // Get valid options
+      for (int option : neighbour.options) {
+        std::vector<int> valid = tiles[option].sides.at(side);
+        std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
+      }
+
+      // Leave only valid opitons
+      options.erase(std::remove_if(options.begin(), options.end(), [&](int opt) {
         return std::count(validOptions.begin(), validOptions.end(), opt) == 0;
-      }), currOptions.end());
+      }), options.end());
     }
 
     void setRandomOption() {
-      int option = *next(options.begin(), random(0, options.size() - 1));
+      const int option = options[random(0, options.size() - 1)];
       options.clear();
       options.push_back(option);
       collapsed = true;
     }
 
-    const int getLastOption() const {
+    const int getSingleOption() const {
       if (options.size() > 1)
         throw std::runtime_error("There are more than one option to get");
 

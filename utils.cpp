@@ -1,13 +1,17 @@
 #include "utils.hpp"
 #include <iostream>
+#include <string>
 
 int random(int min, int max) {
   return min + rand() % ((max + 1) - min);
 }
 
-template<typename T>
-void print(T msg) {
+void print(std::string msg) {
   std::cout << msg << "\n";
+}
+
+void print(int msg) {
+  std::cout << std::to_string(msg) << "\n";
 }
 
 void printVector(std::vector<int>& vec, std::string name = "Vector") {

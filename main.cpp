@@ -20,6 +20,7 @@ int main() {
   bool allowSteps = false;
   bool nextStep = true;
   int stepCount = 0;
+  bool doOnce = true;
 
   const int DIM = 50;
   const float w = (float) width / DIM;
@@ -28,6 +29,13 @@ int main() {
   // create the window
   sf::RenderWindow window(sf::VideoMode(width, height), "Wave function collapse", sf::Style::Close);
   window.setFramerateLimit(75);
+
+  sf::RenderTexture renderTexture;
+  renderTexture.create(width, height);
+
+  // Get the render texture and make sprite of it
+  const sf::Texture &canvasTexture = renderTexture.getTexture();
+  sf::Sprite canvasSprite(canvasTexture);
 
   // Load images and set rules (all going clockwise) //
   std::vector<Tile> tileMap {
@@ -79,8 +87,7 @@ int main() {
         }
     }
 
-    // clear the window with black color
-    window.clear(sf::Color(31, 30, 31));
+    /* renderTexture.clear(sf::Color(31, 30, 31)); */
 
     // draw everything here...
     if (nextStep) {
@@ -120,85 +127,49 @@ int main() {
         gridCopy[random(0, gridCopy.size() - 1)]->setRandomOption();
       }
 
-      std::vector<Cell> nextGrid(DIM * DIM);
-
       for (int j = 0; j < DIM; j++) {
         for (int i = 0; i < DIM; i++) {
-          int index = i + j * DIM;
+          const int index = i + j * DIM;
           Cell& cell = grid[index];
 
-          if (cell.isCollapsed()) {
-            nextGrid[index] = cell;
-
-            if (!cell.isDrawn) {
-              const sf::Texture& tileTexture = tileMap.at(cell.getLastOption()).texture;
+          if (cell.isCollapsed() && !cell.isDrawn) {
+              const sf::Texture& tileTexture = tileMap.at(cell.getSingleOption()).texture;
               cell.sprite.setTexture(tileTexture);
               cell.sprite.setPosition(i * w, j * h);
               cell.isDrawn = true;
 
-              window.draw(cell.sprite);
-            }
+              renderTexture.draw(cell.sprite);
           } else {
-            std::vector<int> currOptions(tileMap.size());
-            std::iota(currOptions.begin(), currOptions.end(), 0);
-
             // Look above
             if (j > 0) {
-              Cell above = grid[i + (j - 1) * DIM];
-              std::vector<int> validOptions;
-
-              for (int option : above.options) {
-                std::vector<int> valid = tileMap.at(option).under;
-                std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
-              }
-              Cell::validateOptions(currOptions, validOptions);
+              const Cell& above = grid[i + (j - 1) * DIM];
+              cell.validateOptions(above, tileMap, "under");
             }
 
             // Look right
             if (i < DIM - 1) {
-              Cell right = grid[i + 1 + j * DIM];
-              std::vector<int> validOptions;
-
-              for (int option : right.options) {
-                std::vector<int> valid = tileMap[option].left;
-                std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
-              }
-              Cell::validateOptions(currOptions, validOptions);
+              const Cell& right = grid[i + 1 + j * DIM];
+              cell.validateOptions(right, tileMap, "left");
             }
-
             // Look under
             if (j < DIM - 1) {
-              Cell under = grid[i + (j + 1) * DIM];
-              std::vector<int> validOptions;
-
-              for (int option : under.options) {
-                std::vector<int> valid = tileMap[option].above;
-                std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
-              }
-              Cell::validateOptions(currOptions, validOptions);
+              const Cell& under = grid[i + (j + 1) * DIM];
+              cell.validateOptions(under, tileMap, "above");
             }
 
             // Look left
             if (i > 0) {
-              Cell left = grid[i - 1 + j * DIM];
-              std::vector<int> validOptions;
-
-              for (int option : left.options) {
-                std::vector<int> valid = tileMap[option].right;
-                std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
-              }
-              Cell::validateOptions(currOptions, validOptions);
+              const Cell& left = grid[i - 1 + j * DIM];
+              cell.validateOptions(left, tileMap, "right");
             }
-
-            nextGrid[index] = Cell(scaleX, scaleY, currOptions);
           }
         }
       }
-
-      grid = nextGrid;
     }
+    renderTexture.display();
 
-    // end the current frame
+    window.clear(sf::Color(31, 30, 31));
+    window.draw(canvasSprite);
     window.display();
   }
 

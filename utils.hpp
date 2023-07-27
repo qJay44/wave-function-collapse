@@ -4,8 +4,8 @@
 
 int random(int min, int max);
 
-template<typename T>
-void print(T msg);
+void print(std::string msg);
+void print(int msg);
 
 void printVector(std::vector<int>& vec, std::string name);
 

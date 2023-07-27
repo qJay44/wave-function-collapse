@@ -7,11 +7,7 @@ class Tile {
   public:
     sf::Texture texture;
     const std::vector<int> edges;
-
-    std::vector<int> above;
-    std::vector<int> right;
-    std::vector<int> under;
-    std::vector<int> left;
+    std::map<std::string, std::vector<int>> sides;
 
     Tile() {}
 
@@ -24,19 +20,19 @@ class Tile {
       for (size_t i = 0; i < tiles.size(); i++) {
         // connection for up
         if (tiles[i].edges[2] == edges[0])
-          above.push_back(i);
+          sides["above"].push_back(i);
 
         // connection for right
         if (tiles[i].edges[3] == edges[1])
-          right.push_back(i);
+          sides["right"].push_back(i);
 
-        // connection for under
+        // connection for down
         if (tiles[i].edges[0] == edges[2])
-          under.push_back(i);
+          sides["under"].push_back(i);
 
         // connection for left
         if (tiles[i].edges[1] == edges[3])
-          left.push_back(i);
+          sides["left"].push_back(i);
       }
     }
 };
