@@ -20,7 +20,6 @@ int main() {
   bool allowSteps = false;
   bool nextStep = true;
   int stepCount = 0;
-  bool doOnce = true;
 
   const int DIM = 50;
   const float w = (float) width / DIM;
@@ -56,7 +55,22 @@ int main() {
     tile.setRules(tileMap);
 
   // Initialize cells
-  std::vector<Cell> grid(DIM * DIM, Cell(scaleX, scaleY, tileMap.size()));
+  std::vector<Cell> grid;
+  grid.reserve(DIM * DIM);
+  std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
+    return Cell(scaleX, scaleY, tileMap.size());
+  });
+
+  sf::Font font;
+  font.loadFromFile("Minecraft rus.ttf");
+
+  sf::Text iterTitle;
+  iterTitle.setFont(font);
+  iterTitle.setCharacterSize(20);
+  iterTitle.setFillColor(sf::Color::White);
+  iterTitle.setOutlineColor(sf::Color(31, 30, 31));
+  iterTitle.setOutlineThickness(4.f);
+  iterTitle.setPosition(sf::Vector2f(20.f, 20.f));
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -82,12 +96,10 @@ int main() {
 
         if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
           grid = std::vector<Cell>(DIM * DIM, Cell(scaleX, scaleY, tileMap.size()));
-          window.clear(sf::Color(31, 30, 31));
+          renderTexture.clear(sf::Color(31, 30, 31));
           stepCount = 0;
         }
     }
-
-    /* renderTexture.clear(sf::Color(31, 30, 31)); */
 
     // draw everything here...
     if (nextStep) {
@@ -95,36 +107,33 @@ int main() {
         nextStep = false;
       stepCount++;
 
-      std::vector<Cell*> gridCopy;
-      for (Cell& cell : grid) {
+      std::vector<Cell*> gridNotCollapsed;
+      for (Cell& cell : grid){
         if (!cell.isCollapsed())
-          gridCopy.push_back(&cell);
+          gridNotCollapsed.push_back(&cell);
       }
 
-      if (gridCopy.size() > 1) {
+      if (gridNotCollapsed.size() > 0) {
         // Sort copy of the grid with least entrory
-        std::sort(gridCopy.begin(), gridCopy.end(), [&](Cell* obj1, Cell* obj2) {
+        std::sort(gridNotCollapsed.begin(), gridNotCollapsed.end(), [](Cell* obj1, Cell* obj2) {
           return obj1->options.size() < obj2->options.size();
         });
 
         // Leave elements with the same (minimal) entropy //
 
-        const int len = gridCopy[0]->options.size();
+        const int len = gridNotCollapsed[0]->options.size();
         int stopIndex = 0;
-        for (int i = 1; i < gridCopy.size(); i++) {
-          if (gridCopy[i]->options.size() > len) {
-            stopIndex = i;
+        for (int i = 1; i < gridNotCollapsed.size(); i++) {
+          if (gridNotCollapsed[i]->options.size() > len) {
+            stopIndex = i - 1;
             break;
           }
         }
 
-        if (stopIndex > 0)
-          gridCopy.erase(gridCopy.begin() + stopIndex, gridCopy.end());
-
         ////////////////////////////////////////////////////
 
         // Pick random cell with least entropy and randomly set option to it
-        gridCopy[random(0, gridCopy.size() - 1)]->setRandomOption();
+        gridNotCollapsed[random(0, stopIndex)]->setRandomOption();
       }
 
       for (int j = 0; j < DIM; j++) {
@@ -133,34 +142,47 @@ int main() {
           Cell& cell = grid[index];
 
           if (cell.isCollapsed() && !cell.isDrawn) {
-              const sf::Texture& tileTexture = tileMap.at(cell.getSingleOption()).texture;
-              cell.sprite.setTexture(tileTexture);
-              cell.sprite.setPosition(i * w, j * h);
-              cell.isDrawn = true;
+            const sf::Texture& tileTexture = tileMap.at(cell.getSingleOption()).texture;
+            cell.sprite.setTexture(tileTexture);
+            cell.sprite.setPosition(i * w, j * h);
+            cell.isDrawn = true;
 
-              renderTexture.draw(cell.sprite);
-          } else {
+            renderTexture.draw(cell.sprite);
+
             // Look above
             if (j > 0) {
-              const Cell& above = grid[i + (j - 1) * DIM];
-              cell.validateOptions(above, tileMap, "under");
+              const int iAbove = i;
+              const int jAbove = j - 1;
+              Cell& above = grid[iAbove + jAbove * DIM];
+
+              above.checkNeighbours(iAbove, jAbove, DIM, grid, tileMap);
             }
 
             // Look right
             if (i < DIM - 1) {
-              const Cell& right = grid[i + 1 + j * DIM];
-              cell.validateOptions(right, tileMap, "left");
+              const int iRight = i + 1;
+              const int jRight = j;
+              Cell& right = grid[iRight + jRight * DIM];
+
+              right.checkNeighbours(iRight, jRight, DIM, grid, tileMap);
             }
+
             // Look under
             if (j < DIM - 1) {
-              const Cell& under = grid[i + (j + 1) * DIM];
-              cell.validateOptions(under, tileMap, "above");
+              const int iUnder = i;
+              const int jUnder = j + 1;
+              Cell& under = grid[iUnder + jUnder * DIM];
+
+              under.checkNeighbours(iUnder, jUnder, DIM, grid, tileMap);
             }
 
             // Look left
             if (i > 0) {
-              const Cell& left = grid[i - 1 + j * DIM];
-              cell.validateOptions(left, tileMap, "right");
+              const int iLeft = i - 1;
+              const int jLeft = j;
+              Cell& left = grid[iLeft + jLeft * DIM];
+
+              left.checkNeighbours(iLeft, jLeft, DIM, grid, tileMap);
             }
           }
         }

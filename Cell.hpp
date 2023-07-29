@@ -27,6 +27,61 @@ class Cell {
       sprite.setScale(scaleX, scaleY);
     }
 
+    void checkNeighbours(
+      const int i,
+      const int j,
+      const int DIM,
+      std::vector<Cell>& grid,
+      std::vector<Tile>& tileMap
+    ) {
+      // Look above
+      if (j > 0) {
+        const Cell& above = grid[i + (j - 1) * DIM];
+        this->validateOptions(above, tileMap, "under");
+      }
+
+      // Look right
+      if (i < DIM - 1) {
+        const Cell& right = grid[i + 1 + j * DIM];
+        this->validateOptions(right, tileMap, "left");
+      }
+      // Look under
+      if (j < DIM - 1) {
+        const Cell& under = grid[i + (j + 1) * DIM];
+        this->validateOptions(under, tileMap, "above");
+      }
+
+      // Look left
+      if (i > 0) {
+        const Cell& left = grid[i - 1 + j * DIM];
+        this->validateOptions(left, tileMap, "right");
+      }
+    }
+
+    void setRandomOption() {
+      if (collapsed)
+        throw std::runtime_error("Cell already collapsed");
+
+      const int option = options[random(0, options.size() - 1)];
+      options.clear();
+      options.push_back(option);
+      collapsed = true;
+    }
+
+    const int getSingleOption() const {
+      if (!collapsed || options.size() > 1)
+        throw std::runtime_error("Cell is not collapsed");
+
+      return *options.begin();
+    }
+
+    const bool& isCollapsed() const {
+      return collapsed;
+    }
+
+  private:
+    bool collapsed = false;
+
     void validateOptions(
         const Cell& neighbour,
         const std::vector<Tile>& tiles,
@@ -45,26 +100,5 @@ class Cell {
         return std::count(validOptions.begin(), validOptions.end(), opt) == 0;
       }), options.end());
     }
-
-    void setRandomOption() {
-      const int option = options[random(0, options.size() - 1)];
-      options.clear();
-      options.push_back(option);
-      collapsed = true;
-    }
-
-    const int getSingleOption() const {
-      if (options.size() > 1)
-        throw std::runtime_error("There are more than one option to get");
-
-      return *options.begin();
-    }
-
-    const bool& isCollapsed() const {
-      return collapsed;
-    }
-
-  private:
-    bool collapsed = false;
 };
 

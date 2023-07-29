@@ -4,6 +4,7 @@
 
 int random(int min, int max);
 
+
 void print(std::string msg);
 void print(int msg);
 
