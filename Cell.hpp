@@ -9,22 +9,11 @@ class Cell {
     std::vector<int> options;
     bool isDrawn = false;
 
-    Cell() {}
-
     Cell(const float& scaleX, const float& scaleY, const int& optionsSize) {
       sprite.setScale(scaleX, scaleY);
 
       options = std::vector<int>(optionsSize);
       std::iota(options.begin(), options.end(), 0);
-    }
-
-    Cell(
-      const float& scaleX,
-      const float& scaleY,
-      std::vector<int> options,
-      bool collapsed = false
-    ) : options(options), collapsed(collapsed) {
-      sprite.setScale(scaleX, scaleY);
     }
 
     void checkNeighbours(

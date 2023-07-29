@@ -107,34 +107,29 @@ int main() {
         nextStep = false;
       stepCount++;
 
-      std::vector<Cell*> gridNotCollapsed;
-      for (Cell& cell : grid){
-        if (!cell.isCollapsed())
-          gridNotCollapsed.push_back(&cell);
-      }
+      // Get cells with least entropy and randomly collapse one; //
 
-      if (gridNotCollapsed.size() > 0) {
-        // Sort copy of the grid with least entrory
-        std::sort(gridNotCollapsed.begin(), gridNotCollapsed.end(), [](Cell* obj1, Cell* obj2) {
-          return obj1->options.size() < obj2->options.size();
-        });
+      std::vector<Cell*> leastEntropyCells;
+      int lastSize = tileMap.size();
 
-        // Leave elements with the same (minimal) entropy //
+      for (Cell& cell : grid) {
+        int currentSize = cell.options.size();
 
-        const int len = gridNotCollapsed[0]->options.size();
-        int stopIndex = 0;
-        for (int i = 1; i < gridNotCollapsed.size(); i++) {
-          if (gridNotCollapsed[i]->options.size() > len) {
-            stopIndex = i - 1;
-            break;
-          }
+        if (!cell.isCollapsed()) {
+          if (leastEntropyCells.size() == 0 || currentSize < lastSize) {
+            lastSize = currentSize;
+            leastEntropyCells.clear();
+            leastEntropyCells.push_back(&cell);
+          } else if (currentSize == lastSize)
+            leastEntropyCells.push_back(&cell);
         }
-
-        ////////////////////////////////////////////////////
-
-        // Pick random cell with least entropy and randomly set option to it
-        gridNotCollapsed[random(0, stopIndex)]->setRandomOption();
       }
+      if (leastEntropyCells.size() > 0)
+        leastEntropyCells[random(0, leastEntropyCells.size() - 1)]->setRandomOption();
+
+      /////////////////////////////////////////////////////////////
+
+      // Draw collapsed cells and reduce options around it //
 
       for (int j = 0; j < DIM; j++) {
         for (int i = 0; i < DIM; i++) {
@@ -187,6 +182,8 @@ int main() {
           }
         }
       }
+
+    ////////////////////////////////////////////////////////
     }
     renderTexture.display();
 
