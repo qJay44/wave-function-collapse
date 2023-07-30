@@ -3,7 +3,12 @@
 #include <string>
 
 int random(int min, int max) {
-  return min + rand() % ((max + 1) - min);
+  const int diff = max - min + 1;
+
+  if (diff == 0)
+    return min;
+
+  return rand() % (diff) + min;
 }
 
 void print(std::string msg) {

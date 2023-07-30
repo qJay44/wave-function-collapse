@@ -14,10 +14,11 @@ class Tile {
     Tile(const std::string &path, const std::vector<int>& edges)
       : edges(edges) {
       this->texture.loadFromFile(path);
+      this->texture.setSmooth(true);
     }
 
     void setRules(std::vector<Tile>& tiles) {
-      for (size_t i = 0; i < tiles.size(); i++) {
+      for (int i = 0; i < tiles.size(); i++) {
         // connection for up
         if (tiles[i].edges[2] == edges[0])
           sides["above"].push_back(i);
@@ -34,6 +35,10 @@ class Tile {
         if (tiles[i].edges[1] == edges[3])
           sides["left"].push_back(i);
       }
+    }
+
+    void changeTexture(const std::string &path) {
+      this->texture.loadFromFile(path);
     }
 };
 
