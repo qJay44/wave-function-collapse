@@ -17,7 +17,7 @@ class Tile {
       this->texture.setSmooth(true);
     }
 
-    void setRules(std::vector<Tile>& tiles) {
+    void setRules(const std::vector<Tile>& tiles) {
       for (int i = 0; i < tiles.size(); i++) {
         // connection for up
         if (tiles[i].edges[2] == edges[0])

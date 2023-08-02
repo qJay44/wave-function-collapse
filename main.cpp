@@ -30,8 +30,9 @@ int main() {
   bool allowSteps = false;
   bool nextStep = true;
   bool changeTilesFolderOnRestart = false;
+  bool showOptionsText = false;
 
-  const int DIM = 80;
+  const int DIM = 50;
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
@@ -42,12 +43,16 @@ int main() {
   sf::RenderTexture renderTexture;
   renderTexture.create(width, height);
 
-  sf::Font font;
-  font.loadFromFile("Minecraft rus.ttf");
-
   // Get the render texture and make sprite of it
   const sf::Texture &canvasTexture = renderTexture.getTexture();
   sf::Sprite canvasSprite(canvasTexture);
+
+  sf::RenderTexture renderTextureSecondary;
+  renderTextureSecondary.create(width, height);
+
+  // Get the render texture and make sprite of it
+  const sf::Texture &canvasTextureSecondary = renderTextureSecondary.getTexture();
+  sf::Sprite canvasSpriteSecondary(canvasTextureSecondary);
 
   // Load images and set rules (all going clockwise) //
   std::vector<Tile> tiles {
@@ -67,11 +72,14 @@ int main() {
   for (Tile& tile : tiles)
     tile.setRules(tiles);
 
+  sf::Font font;
+  font.loadFromFile("Minecraft rus.ttf");
+
   // Initialize cells
   std::vector<Cell> grid;
   grid.reserve(DIM * DIM);
   std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
-    return Cell(scaleX, scaleY, tiles.size());
+    return Cell(scaleX, scaleY, tiles.size(), font);
   });
 
   // run the program as long as the window is open
@@ -85,43 +93,57 @@ int main() {
         if (event.type == sf::Event::Closed)
             window.close();
 
-        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
-            window.close();
+        else if (event.type == sf::Event::KeyPressed) {
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+              window.close();
 
-        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::N)) {
-          if (allowSteps)
-            nextStep = true;
-        }
-
-        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::S))
-          allowSteps = !allowSteps;
-
-        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
-          // Change texture set
-          if (changeTilesFolderOnRestart) {
-            folder = pathPrefix + tilesFolders[random(0, tilesFolders.size() - 1)];
-            for (int i = 0; i < tiles.size(); i++)
-              tiles[i].changeTexture(folder + directions[i]);
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::N)) {
+            if (allowSteps)
+              nextStep = true;
           }
 
-          // Change texture scales (size)
-          textureSize = tiles.at(0).texture.getSize();
-          scaleX = w / textureSize.x;
-          scaleY = h / textureSize.y;
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+            allowSteps = !allowSteps;
 
-          // Clear grid
-          grid = std::vector<Cell>(DIM * DIM, Cell(scaleX, scaleY, tiles.size()));
-          grid.reserve(DIM * DIM);
-          std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
-            return Cell(scaleX, scaleY, tiles.size());
-          });
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
+            // Change texture set
+            if (changeTilesFolderOnRestart) {
+              folder = pathPrefix + tilesFolders[random(0, tilesFolders.size() - 1)];
+              for (int i = 0; i < tiles.size(); i++)
+                tiles[i].changeTexture(folder + directions[i]);
+            }
 
-          // Clear window
-          renderTexture.clear(sf::Color(31, 30, 31));
+            // Change texture scales (size)
+            textureSize = tiles.at(0).texture.getSize();
+            scaleX = w / textureSize.x;
+            scaleY = h / textureSize.y;
+
+            // Clear grid
+            grid = std::vector<Cell>(DIM * DIM, Cell(scaleX, scaleY, tiles.size(), font));
+            grid.reserve(DIM * DIM);
+            std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
+              return Cell(scaleX, scaleY, tiles.size(), font);
+            });
+
+            // Clear window
+            renderTexture.clear(sf::Color(31, 30, 31));
+          }
+
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::I))
+            changeTilesFolderOnRestart = !changeTilesFolderOnRestart;
+
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::O))
+            showOptionsText = !showOptionsText;
+
+        } else if (event.type == sf::Event::MouseButtonPressed) {
+            if (event.mouseButton.button == sf::Mouse::Left) {
+              int i = event.mouseButton.x / w;
+              int j = event.mouseButton.y / h;
+
+              grid[i + j * DIM].setRandomOption(true);
+              nextStep = true;
+            }
         }
-
-        if (event.type == sf::Event::KeyPressed && sf::Keyboard::isKeyPressed(sf::Keyboard::I))
-          changeTilesFolderOnRestart = !changeTilesFolderOnRestart;
     }
 
     // draw everything here...
@@ -133,7 +155,7 @@ int main() {
 
       int lastSize = tiles.size();
       for (Cell& cell : grid) {
-        const int currentSize = cell.options.size();
+        int currentSize = cell.getOptionsSize();
 
         // Add cells with least entropy
         if (!cell.isCollapsed()) {
@@ -150,19 +172,17 @@ int main() {
       if (leastEntropyCells.size() > 0)
         leastEntropyCells[random(0, leastEntropyCells.size() - 1)]->setRandomOption();
 
+      renderTextureSecondary.clear(sf::Color(31, 30, 31, 0));
+
       for (int j = 0; j < DIM; j++) {
         for (int i = 0; i < DIM; i++) {
           const int index = i + j * DIM;
           Cell& cell = grid[index];
 
           // Draw collapsed cells and reduce options from cells around it //
-          if (cell.isCollapsed() && !cell.isDrawn) {
+          if (cell.isCollapsed() && !cell.isDrawn()) {
             const sf::Texture& tileTexture = tiles.at(cell.getSingleOption()).texture;
-            cell.sprite.setTexture(tileTexture);
-            cell.sprite.setPosition(i * w, j * h);
-            cell.isDrawn = true;
-
-            renderTexture.draw(cell.sprite);
+            const sf::Sprite* sprite = cell.prepareSprite(tileTexture, i * w, j * h);
 
             // Look above
             if (j > 0) {
@@ -199,17 +219,23 @@ int main() {
 
               left.validateOptions(cell, tiles, "left");
             }
+
+            renderTexture.draw(*sprite);
           }
+
+          if (showOptionsText && !cell.isCollapsed() && cell.getOptionsSize() < 5)
+            renderTextureSecondary.draw(*cell.updateText(w * (i + 0.5f), h * (j + 0.5f)));
         }
       }
 
     ////////////////////////////////////////////////////////
     }
-
     renderTexture.display();
+    renderTextureSecondary.display();
 
     window.clear(sf::Color(31, 30, 31));
     window.draw(canvasSprite);
+    window.draw(canvasSpriteSecondary);
     window.display();
   }
 
