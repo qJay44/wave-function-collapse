@@ -23,25 +23,27 @@ class Cell {
       optionsText.setOutlineThickness(3.f);
     }
 
-    void validateOptions(
+    bool validateOptions(
         const Cell& neighbour,
         const std::vector<Tile>& tiles,
         const std::string side
     ) {
-      if (!isCollapsed()) {
-        std::vector<int> validOptions;
+      if (isCollapsed()) return false;
 
-        // Get valid options
-        for (int option : neighbour.options) {
-          std::vector<int> valid = tiles[option].sides.at(side);
-          std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
-        }
+      std::vector<int> validOptions;
 
-        // Leave only valid opitons
-        options.erase(std::remove_if(options.begin(), options.end(), [&](int opt) {
-          return std::count(validOptions.begin(), validOptions.end(), opt) == 0;
-        }), options.end());
+      // Get valid options
+      for (int option : neighbour.options) {
+        std::vector<int> valid = tiles[option].sides.at(side);
+        std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
       }
+
+      // Leave only valid opitons
+      options.erase(std::remove_if(options.begin(), options.end(), [&](int opt) {
+        return std::count(validOptions.begin(), validOptions.end(), opt) == 0;
+      }), options.end());
+
+      return isCollapsed();
     }
 
     void setRandomOption(bool forced = false) {
