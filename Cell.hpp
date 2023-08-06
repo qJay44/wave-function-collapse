@@ -1,7 +1,5 @@
 #include "Tile.hpp"
 #include <numeric>
-#include <stdexcept>
-#include <string>
 
 class Cell {
   public:
@@ -23,24 +21,12 @@ class Cell {
       optionsText.setOutlineThickness(3.f);
     }
 
-    bool validateOptions(
-        const Cell& neighbour,
-        const std::vector<Tile>& tiles,
-        const std::string side
-    ) {
+    bool validateOptions(const std::set<int>& validOptions) {
       if (isCollapsed()) return false;
-
-      std::vector<int> validOptions;
-
-      // Get valid options
-      for (int option : neighbour.options) {
-        std::vector<int> valid = tiles[option].sides.at(side);
-        std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
-      }
 
       // Leave only valid opitons
       options.erase(std::remove_if(options.begin(), options.end(), [&](int opt) {
-        return std::count(validOptions.begin(), validOptions.end(), opt) == 0;
+        return std::find(validOptions.begin(), validOptions.end(), opt) == validOptions.end();
       }), options.end());
 
       return isCollapsed();

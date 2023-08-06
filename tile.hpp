@@ -1,13 +1,9 @@
 #include "SFML/Graphics.hpp"
 #include "utils.hpp"
-#include <algorithm>
-#include <iterator>
+#include <set>
 
 class Tile {
   public:
-    sf::Texture texture;
-    const std::vector<int> edges;
-    std::map<std::string, std::vector<int>> sides;
 
     Tile() {}
 
@@ -40,5 +36,19 @@ class Tile {
     void changeTexture(const std::string &path) {
       this->texture.loadFromFile(path);
     }
+
+    const std::set<int> getSideOptions(std::string side) const {
+      const std::vector<int>& sideOptions = sides.at(side);
+      return std::set<int>(sideOptions.begin(), sideOptions.end());
+    }
+
+    const sf::Texture getTexture() const {
+      return texture;
+    }
+
+  private:
+    sf::Texture texture;
+    const std::vector<int> edges;
+    std::map<std::string, std::vector<int>> sides;
 };
 

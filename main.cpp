@@ -1,14 +1,7 @@
 #include "SFML/Window.hpp"
 #include "SFML/System.hpp"
 #include "Cell.hpp"
-#include <algorithm>
-#include <iostream>
-#include <iterator>
-#include <map>
-#include <fstream>
 #include <deque>
-#include <stdlib.h>
-#include <cstdlib>
 
 
 int main() {
@@ -31,13 +24,14 @@ int main() {
   bool changeTilesFolderOnRestart = false;
   bool showOptionsText = false;
 
-  const int DIM = 50;
+  const int DIM = 90;
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
   // create the window
   sf::RenderWindow window(sf::VideoMode(width, height), "Wave function collapse", sf::Style::Close);
   window.setFramerateLimit(75);
+  window.setKeyRepeatEnabled(false);
 
   sf::RenderTexture renderTexture;
   renderTexture.create(width, height);
@@ -63,7 +57,7 @@ int main() {
   };
 
   // Use any texture since all cells will have the same size
-  sf::Vector2u textureSize = tiles.at(0).texture.getSize();
+  sf::Vector2u textureSize = tiles.at(0).getTexture().getSize();
   float scaleX = w / textureSize.x;
   float scaleY = h / textureSize.y;
 
@@ -80,6 +74,8 @@ int main() {
   std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
     return Cell(scaleX, scaleY, tiles.size(), font);
   });
+
+  std::deque<sf::Vector2i> collapsedCells;
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -115,7 +111,7 @@ int main() {
             }
 
             // Change texture scales (size)
-            textureSize = tiles.at(0).texture.getSize();
+            textureSize = tiles.at(0).getTexture().getSize();
             scaleX = w / textureSize.x;
             scaleY = h / textureSize.y;
 
@@ -141,7 +137,9 @@ int main() {
               int i = event.mouseButton.x / w;
               int j = event.mouseButton.y / h;
 
-              grid[i + j * DIM].setRandomOption(true);
+              Cell& cell = grid[i + j * DIM];
+              cell.setRandomOption(true);
+              collapsedCells.push_back({ i, j });
               nextStep = true;
             }
         }
@@ -154,9 +152,8 @@ int main() {
 
       renderTextureSecondary.clear(sf::Color(31, 30, 31, 0));
 
-      std::deque<std::vector<int>> collapsedCells;
       std::vector<Cell*> leastEntropyCells;
-      std::vector<std::vector<int>> leastEntropyCellsIndex;
+      std::vector<sf::Vector2i> leastEntropyCellsVec;
 
       int lastSize = tiles.size();
       for (int j = 0; j < DIM; j++) {
@@ -170,13 +167,13 @@ int main() {
             if (leastEntropyCells.size() == 0 || currentSize < lastSize) {
               lastSize = currentSize;
               leastEntropyCells.clear();
-              leastEntropyCellsIndex.clear();
+              leastEntropyCellsVec.clear();
               leastEntropyCells.push_back(&cell);
-              leastEntropyCellsIndex.push_back({ i, j });
+              leastEntropyCellsVec.push_back({ i, j });
             }
             else if(currentSize == lastSize) {
               leastEntropyCells.push_back(&cell);
-              leastEntropyCellsIndex.push_back({ i, j });
+              leastEntropyCellsVec.push_back({ i, j });
             }
 
             if (showOptionsText && cell.getOptionsSize() < 5)
@@ -186,17 +183,20 @@ int main() {
       }
 
       if (leastEntropyCells.size() > 0) {
-        int pickIndex = random(0, leastEntropyCells.size() - 1);
-        leastEntropyCells[pickIndex]->setRandomOption();
-        collapsedCells.push_back(leastEntropyCellsIndex[pickIndex]);
+          int pickIndex = random(0, leastEntropyCells.size() - 1);
+          leastEntropyCells[pickIndex]->setRandomOption();
+          collapsedCells.push_back(leastEntropyCellsVec[pickIndex]);
       }
 
-      auto validator = [&] (Cell& cell, int i, int j) {
+      auto validator = [&] (int i, int j) {
+        Cell& cell = grid[i + j * DIM];
+        const Tile& tile = tiles[cell.getSingleOption()];
+
         // Look above
         if (j > 0) {
           Cell& above = grid[i + (j - 1) * DIM];
 
-          if (above.validateOptions(cell, tiles, "above"))
+          if (above.validateOptions(tile.getSideOptions("above")))
             collapsedCells.push_back({ i, j - 1 });
         }
 
@@ -204,7 +204,7 @@ int main() {
         if (i < DIM - 1) {
           Cell& right = grid[i + 1 + j * DIM];
 
-          if (right.validateOptions(cell, tiles, "right"))
+          if (right.validateOptions(tile.getSideOptions("right")))
             collapsedCells.push_back({ i + 1, j });
         }
 
@@ -212,7 +212,7 @@ int main() {
         if (j < DIM - 1) {
           Cell& under = grid[i + (j + 1) * DIM];
 
-          if (under.validateOptions(cell, tiles, "under"))
+          if (under.validateOptions(tile.getSideOptions("under")))
             collapsedCells.push_back({ i, j + 1 });
         }
 
@@ -220,30 +220,26 @@ int main() {
         if (i > 0) {
           Cell& left = grid[i - 1 + j * DIM];
 
-          if (left.validateOptions(cell, tiles, "left"))
+          if (left.validateOptions(tile.getSideOptions("left")))
             collapsedCells.push_back({ i - 1, j });
         }
-      };
-
-      while (!collapsedCells.empty()) {
-        std::vector<int> collapsedCellIndex = collapsedCells.back();
-        collapsedCells.pop_back();
-
-        int i = collapsedCellIndex[0];
-        int j = collapsedCellIndex[1];
-        Cell& cell = grid[i + j * DIM];
-
-        validator(cell, i, j);
 
         // Draw collapsed cells
         if (!cell.isDrawn()) {
-          const sf::Texture& tileTexture = tiles.at(cell.getSingleOption()).texture;
+          const sf::Texture& tileTexture = tile.getTexture();
           const sf::Sprite* sprite = cell.prepareSprite(tileTexture, i * w, j * h);
 
           renderTexture.draw(*sprite);
         }
-      }
+      };
 
+      while (!collapsedCells.empty()) {
+        sf::Vector2i collapsedCellIndex = collapsedCells.front();
+        collapsedCells.pop_front();
+
+        auto [i, j] = collapsedCellIndex;
+        validator(i, j);
+      }
     ////////////////////////////////////////////////////////
     }
     renderTexture.display();
