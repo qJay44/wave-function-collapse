@@ -5,8 +5,6 @@
 class Tile {
   public:
 
-    Tile() {}
-
     Tile(const std::string &path, const std::vector<int>& edges)
       : edges(edges) {
       this->texture.loadFromFile(path);
@@ -47,8 +45,8 @@ class Tile {
     }
 
   private:
-    sf::Texture texture;
     const std::vector<int> edges;
+    sf::Texture texture;
     std::map<std::string, std::vector<int>> sides;
 };
 

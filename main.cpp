@@ -145,7 +145,6 @@ int main() {
         }
     }
 
-    // draw everything here...
     if (nextStep) {
       if (allowSteps)
         nextStep = false;
@@ -240,8 +239,8 @@ int main() {
         auto [i, j] = collapsedCellIndex;
         validator(i, j);
       }
-    ////////////////////////////////////////////////////////
     }
+
     renderTexture.display();
     renderTextureSecondary.display();
 
