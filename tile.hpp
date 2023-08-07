@@ -1,8 +1,13 @@
 #include "SFML/Graphics.hpp"
 #include "utils.hpp"
+#include "Directions.hpp"
 #include <set>
 
 class Tile {
+  const std::vector<int> edges;
+  sf::Texture texture;
+  std::map<int, std::vector<int>> sides;
+
   public:
 
     Tile(const std::string &path, const std::vector<int>& edges)
@@ -15,19 +20,19 @@ class Tile {
       for (int i = 0; i < tiles.size(); i++) {
         // connection for up
         if (tiles[i].edges[2] == edges[0])
-          sides["above"].push_back(i);
+          sides[NORTH].push_back(i);
 
         // connection for right
         if (tiles[i].edges[3] == edges[1])
-          sides["right"].push_back(i);
+          sides[EAST].push_back(i);
 
         // connection for down
         if (tiles[i].edges[0] == edges[2])
-          sides["under"].push_back(i);
+          sides[SOUTH].push_back(i);
 
         // connection for left
         if (tiles[i].edges[1] == edges[3])
-          sides["left"].push_back(i);
+          sides[WEST].push_back(i);
       }
     }
 
@@ -35,7 +40,7 @@ class Tile {
       this->texture.loadFromFile(path);
     }
 
-    const std::set<int> getSideOptions(std::string side) const {
+    const std::set<int> getSideOptions(int side) const {
       const std::vector<int>& sideOptions = sides.at(side);
       return std::set<int>(sideOptions.begin(), sideOptions.end());
     }
@@ -43,10 +48,5 @@ class Tile {
     const sf::Texture getTexture() const {
       return texture;
     }
-
-  private:
-    const std::vector<int> edges;
-    sf::Texture texture;
-    std::map<std::string, std::vector<int>> sides;
 };
 

@@ -1,64 +1,121 @@
 #include "Tile.hpp"
 #include <numeric>
+#include <deque>
 
 class Cell {
-  public:
-    bool checkedNeighbours = false;
+  static float scaleX;
+  static float scaleY;
+  static int optionsSize;
+  static sf::Font font;
 
-    Cell(
-      const float& scaleX,
-      const float& scaleY,
-      const int& optionsSize,
-      sf::Font& font
-    ) {
+  sf::Sprite sprite;
+  sf::Text optionsText;
+  std::vector<int> options;
+  std::map<int, Cell*> neighbours;
+
+  int index;
+
+  public:
+
+    Cell() {
       sprite.setScale(scaleX, scaleY);
       options = std::vector<int>(optionsSize);
       std::iota(options.begin(), options.end(), 0);
 
+      optionsText.setCharacterSize(30);
       optionsText.setFont(font);
       optionsText.setScale(scaleX, scaleY);
       optionsText.setOutlineColor(sf::Color(31, 30, 31));
       optionsText.setOutlineThickness(3.f);
+
+      sf::FloatRect textRect = optionsText.getLocalBounds();
+      optionsText.setOrigin(
+        textRect.left + textRect.width / 2.f,
+        textRect.top  + textRect.height / 2.f
+      );
     }
 
-    bool validateOptions(const std::set<int>& validOptions) {
-      if (isCollapsed()) return false;
+    static void setCoreValues(
+      float scaleX,
+      float scaleY,
+      int optionsSize,
+      sf::Font font
+    ) {
+      Cell::scaleX = scaleX;
+      Cell::scaleY = scaleY;
+      Cell::optionsSize = optionsSize;
+      Cell::font = font;
+    }
 
-      // Leave only valid opitons
-      options.erase(std::remove_if(options.begin(), options.end(), [&](int opt) {
-        return std::find(validOptions.begin(), validOptions.end(), opt) == validOptions.end();
-      }), options.end());
+    void validateOptions(
+      const std::vector<Tile>& tiles,
+      std::deque<int>& collapsedIndeces
+    ) {
+      for (const auto& [direction, neighbour] : neighbours) {
+        if (neighbour->isCollapsed()) continue;
 
-      return isCollapsed();
+        std::vector<int>& neighbourOptions = neighbour->options;
+        const std::set<int> validOptions = tiles[getSingleOption()].getSideOptions(direction);
+
+        // Leave only valid opitons
+        neighbourOptions.erase(std::remove_if(neighbourOptions.begin(), neighbourOptions.end(), [&validOptions](int opt) {
+          return std::find(validOptions.begin(), validOptions.end(), opt) == validOptions.end();
+        }), neighbourOptions.end());
+
+        if (neighbour->isCollapsed())
+          collapsedIndeces.push_back(neighbour->index);
+      }
+    }
+
+    void setPosition(int i, int j, float w, float h, int DIM) {
+      index = i + j * DIM;
+      float x = i * w;
+      float y = j * h;
+
+      sprite.setPosition({ x, y });
+      optionsText.setPosition({
+        x + w / 2.f,
+        y + h / 2.f
+      });
+    }
+
+    void setNeighbours(std::map<int, Cell*> neighbours) {
+      if (this->neighbours.size() != 0)
+        throw std::runtime_error("Already has neighbours");
+
+      this->neighbours = neighbours;
     }
 
     void setRandomOption(bool forced = false) {
       if (isCollapsed() && !forced)
         throw std::runtime_error("Cell already collapsed");
 
-      const int option = options[random(0, options.size() - 1)];
+      int option = options[random(0, options.size() - 1)];
       options.clear();
       options.push_back(option);
     }
 
-    const sf::Sprite* prepareSprite(const sf::Texture& texture, float x, float y) {
+    const sf::Sprite* prepareSprite(const sf::Texture& texture) {
       sprite.setTexture(texture);
-      sprite.setPosition(x, y);
 
       return &sprite;
     }
 
-    sf::Text* updateText(float x, float y) {
-      sf::FloatRect textRect = optionsText.getLocalBounds();
-      optionsText.setOrigin(
-        textRect.left + textRect.width / 2.f,
-        textRect.top  + textRect.height / 2.f
-      );
-      optionsText.setCharacterSize(30);
-      optionsText.setPosition(x, y);
+    const sf::Text* prepareText() {
       optionsText.setString(std::to_string(options.size()));
 
       return &optionsText;
+    }
+
+    void reset() {
+      options = std::vector<int>(optionsSize);
+      std::iota(options.begin(), options.end(), 0);
+
+      sf::Vector2f pos = sprite.getPosition();
+
+      sprite = sf::Sprite();
+      sprite.setScale(scaleX, scaleY);
+      sprite.setPosition(pos);
     }
 
     const int getSingleOption() const {
@@ -69,20 +126,31 @@ class Cell {
     }
 
     const bool isCollapsed() const {
+      /* if (options.size() == 0) */
+      /*   throw std::runtime_error("0 options left"); */
+
       return options.size() == 1;
     }
 
     const bool isDrawn() const {
-      return sprite.getTexture() != NULL;
+      return sprite.getTexture();
     }
 
-    const int getOptionsSize() const {
+    const int getEntropy() const {
       return options.size();
     }
 
-  private:
-    sf::Sprite sprite;
-    std::vector<int> options;
-    sf::Text optionsText;
+    const std::vector<int> peekOptions() const {
+      return options;
+    }
+
+    const std::map<int, std::vector<int>> peekNeighourOptions() const {
+      std::map<int, std::vector<int>> neighboursOpts;
+
+      for (const auto& neighbour : neighbours)
+        neighboursOpts[neighbour.first] = neighbour.second->peekOptions();
+
+      return neighboursOpts;
+    }
 };
 

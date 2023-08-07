@@ -1,6 +1,5 @@
 #include "utils.hpp"
 #include <iostream>
-#include <string>
 
 int random(int min, int max) {
   const int diff = max - min + 1;
@@ -19,7 +18,7 @@ void print(int msg) {
   std::cout << std::to_string(msg) << "\n";
 }
 
-void printVector(std::vector<int>& vec, std::string name = "Vector") {
+void printVector(const std::vector<int>& vec, std::string name = "Vector") {
   std::cout << name << " = { ";
   for (const int& item : vec) {
     std::cout << std::to_string(item) << " ";

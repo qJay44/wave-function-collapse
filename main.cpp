@@ -1,7 +1,13 @@
 #include "SFML/Window.hpp"
 #include "SFML/System.hpp"
 #include "Cell.hpp"
-#include <deque>
+#include <memory>
+
+
+float Cell::scaleX;
+float Cell::scaleY;
+int Cell::optionsSize;
+sf::Font Cell::font;
 
 
 int main() {
@@ -24,14 +30,13 @@ int main() {
   bool changeTilesFolderOnRestart = false;
   bool showOptionsText = false;
 
-  const int DIM = 90;
+  const int DIM = 60;
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
   // create the window
   sf::RenderWindow window(sf::VideoMode(width, height), "Wave function collapse", sf::Style::Close);
   window.setFramerateLimit(75);
-  window.setKeyRepeatEnabled(false);
 
   sf::RenderTexture renderTexture;
   renderTexture.create(width, height);
@@ -58,8 +63,6 @@ int main() {
 
   // Use any texture since all cells will have the same size
   sf::Vector2u textureSize = tiles.at(0).getTexture().getSize();
-  float scaleX = w / textureSize.x;
-  float scaleY = h / textureSize.y;
 
   // Generate the adjancency rules based on edges
   for (Tile& tile : tiles)
@@ -68,14 +71,42 @@ int main() {
   sf::Font font;
   font.loadFromFile("Minecraft rus.ttf");
 
-  // Initialize cells
-  std::vector<Cell> grid;
-  grid.reserve(DIM * DIM);
-  std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
-    return Cell(scaleX, scaleY, tiles.size(), font);
-  });
+  Cell::setCoreValues(
+    w / textureSize.x,
+    h / textureSize.y,
+    tiles.size(),
+    font
+  );
 
-  std::deque<sf::Vector2i> collapsedCells;
+  // Initialize cells
+  std::vector<Cell> grid(DIM * DIM, Cell());
+  grid.reserve(DIM * DIM);
+
+  for (int j = 0; j < DIM; j++) {
+    for (int i = 0; i < DIM; i++) {
+      Cell& cell = grid[i + j * DIM];
+      std::map<int, Cell*> neighbours;
+
+      // Look up
+      if (j > 0)
+        neighbours[NORTH] = &grid[i + (j - 1) * DIM];
+
+      // Look right
+      if (i < DIM - 1)
+        neighbours[EAST] = &grid[i + 1 + j * DIM];
+
+      // Look under
+      if (j < DIM - 1)
+        neighbours[SOUTH] = &grid[i + (j + 1) * DIM];
+
+      // Look left
+      if (i > 0)
+        neighbours[WEST] = &grid[i - 1 + j * DIM];
+
+      cell.setNeighbours(neighbours);
+      cell.setPosition(i, j, w, h, DIM);
+    }
+  }
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -112,15 +143,17 @@ int main() {
 
             // Change texture scales (size)
             textureSize = tiles.at(0).getTexture().getSize();
-            scaleX = w / textureSize.x;
-            scaleY = h / textureSize.y;
+
+            Cell::setCoreValues(
+              w / textureSize.x,
+              h / textureSize.y,
+              tiles.size(),
+              font
+            );
 
             // Clear grid
-            grid = std::vector<Cell>(DIM * DIM, Cell(scaleX, scaleY, tiles.size(), font));
-            grid.reserve(DIM * DIM);
-            std::generate_n(std::back_inserter(grid), DIM * DIM, [&] {
-              return Cell(scaleX, scaleY, tiles.size(), font);
-            });
+            for (Cell& cell : grid)
+              cell.reset();
 
             // Clear window
             renderTexture.clear(sf::Color(31, 30, 31));
@@ -137,10 +170,23 @@ int main() {
               int i = event.mouseButton.x / w;
               int j = event.mouseButton.y / h;
 
-              Cell& cell = grid[i + j * DIM];
-              cell.setRandomOption(true);
-              collapsedCells.push_back({ i, j });
+              grid[i + j * DIM].setRandomOption(true);
               nextStep = true;
+            }
+            if (event.mouseButton.button == sf::Mouse::Right) {
+              int i = event.mouseButton.x / w;
+              int j = event.mouseButton.y / h;
+
+              Cell& cell = grid[i + j * DIM];
+
+              print("/////////////////////");
+
+              printVector(cell.peekOptions(), "My options");
+              print("My neighbours");
+              for (const auto& n : cell.peekNeighourOptions())
+                printVector(n.second, std::to_string(n.first));
+
+              print("/////////////////////");
             }
         }
     }
@@ -151,93 +197,51 @@ int main() {
 
       renderTextureSecondary.clear(sf::Color(31, 30, 31, 0));
 
-      std::vector<Cell*> leastEntropyCells;
-      std::vector<sf::Vector2i> leastEntropyCellsVec;
+      int lastEntropy = tiles.size();
+      std::vector<int> leastEntropyIndeces;
+      std::deque<int> collapsedIndeces;
 
-      int lastSize = tiles.size();
       for (int j = 0; j < DIM; j++) {
         for (int i = 0; i < DIM; i++) {
-          Cell& cell = grid[i + j * DIM];
+          int index = i + j * DIM;
+          Cell& cell = grid[index];
+
+          if (cell.isCollapsed()) continue;
+
+          int currentEntropy = cell.getEntropy();
 
           // Add cells with least entropy
-          if (!cell.isCollapsed()) {
-            int currentSize = cell.getOptionsSize();
+          if (leastEntropyIndeces.size() == 0 || currentEntropy < lastEntropy) {
+            lastEntropy = currentEntropy;
+            leastEntropyIndeces.clear();
+            leastEntropyIndeces.push_back(index);
 
-            if (leastEntropyCells.size() == 0 || currentSize < lastSize) {
-              lastSize = currentSize;
-              leastEntropyCells.clear();
-              leastEntropyCellsVec.clear();
-              leastEntropyCells.push_back(&cell);
-              leastEntropyCellsVec.push_back({ i, j });
-            }
-            else if(currentSize == lastSize) {
-              leastEntropyCells.push_back(&cell);
-              leastEntropyCellsVec.push_back({ i, j });
-            }
+          } else if(currentEntropy == lastEntropy)
+            leastEntropyIndeces.push_back(index);
 
-            if (showOptionsText && cell.getOptionsSize() < 5)
-              renderTextureSecondary.draw(*cell.updateText(w * (i + 0.5f), h * (j + 0.5f)));
-          }
+          if (showOptionsText && cell.getEntropy() < 5)
+            renderTextureSecondary.draw(*cell.prepareText());
         }
       }
 
-      if (leastEntropyCells.size() > 0) {
-          int pickIndex = random(0, leastEntropyCells.size() - 1);
-          leastEntropyCells[pickIndex]->setRandomOption();
-          collapsedCells.push_back(leastEntropyCellsVec[pickIndex]);
+      if (leastEntropyIndeces.size() > 0) {
+          int index = leastEntropyIndeces[random(0, leastEntropyIndeces.size() - 1)];
+          grid[index].setRandomOption();
+          collapsedIndeces.push_back(index);
       }
 
-      auto validator = [&] (int i, int j) {
-        Cell& cell = grid[i + j * DIM];
-        const Tile& tile = tiles[cell.getSingleOption()];
+      while (!collapsedIndeces.empty()) {
+        Cell& cell = grid[collapsedIndeces.front()];
+        collapsedIndeces.pop_front();
 
-        // Look above
-        if (j > 0) {
-          Cell& above = grid[i + (j - 1) * DIM];
+        cell.validateOptions(tiles, collapsedIndeces);
 
-          if (above.validateOptions(tile.getSideOptions("above")))
-            collapsedCells.push_back({ i, j - 1 });
-        }
-
-        // Look right
-        if (i < DIM - 1) {
-          Cell& right = grid[i + 1 + j * DIM];
-
-          if (right.validateOptions(tile.getSideOptions("right")))
-            collapsedCells.push_back({ i + 1, j });
-        }
-
-        // Look under
-        if (j < DIM - 1) {
-          Cell& under = grid[i + (j + 1) * DIM];
-
-          if (under.validateOptions(tile.getSideOptions("under")))
-            collapsedCells.push_back({ i, j + 1 });
-        }
-
-        // Look left
-        if (i > 0) {
-          Cell& left = grid[i - 1 + j * DIM];
-
-          if (left.validateOptions(tile.getSideOptions("left")))
-            collapsedCells.push_back({ i - 1, j });
-        }
-
-        // Draw collapsed cells
         if (!cell.isDrawn()) {
-          const sf::Texture& tileTexture = tile.getTexture();
-          const sf::Sprite* sprite = cell.prepareSprite(tileTexture, i * w, j * h);
+          const sf::Texture& tileTexture = tiles[cell.getSingleOption()].getTexture();
+          const sf::Sprite* sprite = cell.prepareSprite(tileTexture);
 
           renderTexture.draw(*sprite);
         }
-      };
-
-      while (!collapsedCells.empty()) {
-        sf::Vector2i collapsedCellIndex = collapsedCells.front();
-        collapsedCells.pop_front();
-
-        auto [i, j] = collapsedCellIndex;
-        validator(i, j);
       }
     }
 
@@ -252,4 +256,5 @@ int main() {
 
   return 0;
 }
+
 
