@@ -4,6 +4,9 @@
 #include <cmath>
 #include <filesystem>
 
+#define WIDTH 900
+#define HEIGHT 900
+#define DIM 20
 
 float Cell::scaleX;
 float Cell::scaleY;
@@ -22,9 +25,8 @@ int main() {
   std::vector<std::string> directions;
   std::string folder = pathPrefix + random(tilesFolders);
 
-  for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+  for (const auto& entry : std::filesystem::directory_iterator(folder))
     directions.push_back(entry.path().string());
-  }
 
   // 1.png, 10.png, 11.png, 2.png -> 1.png, 2.png, ..., 10.png, 11.png
   std::sort(directions.begin(), directions.end(),
@@ -52,24 +54,20 @@ int main() {
       return false;
     });
 
-  const int width = 900;
-  const int height = 900;
-
   bool allowSteps = false;
   bool nextStep = true;
   bool showOptionsText = false;
   bool drawGrid = false;
 
-  const int DIM = 70;
-  const float w = (float) width / DIM;
-  const float h = (float) height / DIM;
+  const float w = (float) WIDTH / DIM;
+  const float h = (float) HEIGHT / DIM;
 
   // create the window
-  sf::RenderWindow window(sf::VideoMode(width, height), "Wave function collapse", sf::Style::Close);
+  sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT), "Wave function collapse", sf::Style::Close);
   window.setFramerateLimit(75);
 
   sf::RenderTexture renderTexture;
-  renderTexture.create(width, height);
+  renderTexture.create(WIDTH, HEIGHT);
 
   // Get the render texture and make sprite of it
   const sf::Texture &canvasTexture = renderTexture.getTexture();
@@ -77,7 +75,7 @@ int main() {
 
   // Secondary layer for some tests drawables
   sf::RenderTexture renderTextureSecondary;
-  renderTextureSecondary.create(width, height);
+  renderTextureSecondary.create(WIDTH, HEIGHT);
 
   // Get the render texture and make sprite of it
   const sf::Texture &canvasTextureSecondary = renderTextureSecondary.getTexture();
@@ -164,18 +162,15 @@ int main() {
     }
   }
 
-  std::deque<int> collapsedIndeces;
-
   auto reset = [&] () {
     // Clear grid
     for (Cell& cell : grid)
       cell.reset();
 
-    // Clear queued cells
-    collapsedIndeces.clear();
-
     // Clear window
     renderTexture.clear(sf::Color(30, 30, 30));
+
+    Cell::zeroOptionsLeft = false;
   };
 
   // run the program as long as the window is open
@@ -218,7 +213,6 @@ int main() {
 
             if (event.mouseButton.button == sf::Mouse::Left) {
               grid[i + j * DIM].setRandomOption(true);
-              collapsedIndeces.push_back(i + j * DIM);
               nextStep = true;
             }
 
@@ -243,29 +237,37 @@ int main() {
 
       renderTextureSecondary.clear(sf::Color(30, 30, 30, 0));
 
+      if (Cell::zeroOptionsLeft)
+        reset();
+
       std::vector<int> leastEntropyIndeces;
 
       for (int j = 0; j < DIM; j++) {
         for (int i = 0; i < DIM; i++) {
           int index = i + j * DIM;
           Cell& cell = grid[index];
+          cell.validateOptions(tiles);
 
-          if (cell.isCollapsed()) continue;
+          if (!cell.isCollapsed()) {
+            static int lastEntropy = tiles.size();
+            int currentEntropy = cell.getEntropy();
 
-          static int lastEntropy = tiles.size();
-          int currentEntropy = cell.getEntropy();
+            // Add cells with least entropy
+            if (leastEntropyIndeces.size() == 0 || currentEntropy < lastEntropy) {
+              lastEntropy = currentEntropy;
+              leastEntropyIndeces.clear();
+              leastEntropyIndeces.push_back(index);
 
-          // Add cells with least entropy
-          if (leastEntropyIndeces.size() == 0 || currentEntropy < lastEntropy) {
-            lastEntropy = currentEntropy;
-            leastEntropyIndeces.clear();
-            leastEntropyIndeces.push_back(index);
+            } else if(currentEntropy == lastEntropy)
+              leastEntropyIndeces.push_back(index);
 
-          } else if(currentEntropy == lastEntropy)
-            leastEntropyIndeces.push_back(index);
-
-          if (showOptionsText && cell.getEntropy() < tiles.size())
-            renderTextureSecondary.draw(cell.prepareText());
+            if (showOptionsText && cell.getEntropy() < tiles.size())
+              renderTextureSecondary.draw(cell.prepareText());
+          } else {
+            const Tile& tile = tiles[cell.getSingleOption()];
+            const sf::Sprite& sprite = cell.prepareSprite(tile);
+            renderTexture.draw(sprite);
+          }
 
           if (drawGrid) {
             sf::RectangleShape cellOutline;
@@ -283,30 +285,9 @@ int main() {
       if (leastEntropyIndeces.size() > 0) {
           int index = random(leastEntropyIndeces);
           grid[index].setRandomOption();
-          collapsedIndeces.push_back(index);
-      }
-
-      while (!collapsedIndeces.empty()) {
-        int index = collapsedIndeces.front();
-        collapsedIndeces.pop_front();
-
-        if (index == -1) {
-          reset();
-          break;
-        }
-
-        Cell& cell = grid[index];
-
-        cell.validateOptions(tiles, collapsedIndeces);
-
-        if (!cell.isDrawn()) {
-            const Tile& tile = tiles[cell.getSingleOption()];
-            const sf::Sprite& sprite = cell.prepareSprite(tile);
-
-            renderTexture.draw(sprite);
-        }
       }
     }
+
     renderTexture.display();
     renderTextureSecondary.display();
 

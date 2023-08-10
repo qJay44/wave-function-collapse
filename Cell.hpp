@@ -2,12 +2,14 @@
 #include <numeric>
 #include <deque>
 
+#define RANDOM_COLLAPSE 0
+#define VALIDATE_COLLAPSE 1
+
 class Cell {
   static float scaleX;
   static float scaleY;
   static int optionsSize;
   static sf::Font font;
-  static bool zeroOptionsLeft;
 
   sf::Sprite sprite;
   sf::Text optionsText;
@@ -17,6 +19,7 @@ class Cell {
   int index;
 
   public:
+    static bool zeroOptionsLeft;
 
     Cell() {
       sprite.setScale(scaleX, scaleY);
@@ -40,30 +43,25 @@ class Cell {
       Cell::font = font;
     }
 
-    void validateOptions(
-      const std::vector<Tile>& tiles,
-      std::deque<int>& collapsedIndeces
-    ) {
+    void validateOptions(const std::vector<Tile>& tiles) {
       for (const auto& [direction, neighbour] : neighbours) {
-        if (neighbour->isCollapsed()) continue;
+        if (neighbour->getEntropy() == tiles.size()) continue;
 
-        std::vector<int>& neighbourOptions = neighbour->options;
-        std::set<int> validOptions = tiles[getSingleOption()].getSideOptions(direction);
+        std::set<int> validOptions;
+        for (int option : neighbour->options) {
+          std::set<int> valid = tiles[option].getSideOptions((direction + 2) % 4);
+          std::copy(valid.begin(), valid.end(), std::inserter(validOptions, validOptions.end()));
+        }
 
         // Leave only valid opitons
-        neighbourOptions.erase(std::remove_if(neighbourOptions.begin(), neighbourOptions.end(),
+        options.erase(std::remove_if(options.begin(), options.end(),
           [&validOptions] (int opt) {
             return std::find(validOptions.begin(), validOptions.end(), opt) == validOptions.end();
           }
-        ), neighbourOptions.end());
+        ), options.end());
 
-        if (neighbour->isCollapsed())
-          collapsedIndeces.push_back(neighbour->index);
-
-        else if (zeroOptionsLeft) {
-          collapsedIndeces.push_front(-1);
-          break;
-        }
+        if (zeroOptionsLeft)
+          zeroOptionsLeft = true;
       }
     }
 
@@ -117,7 +115,6 @@ class Cell {
     }
 
     void reset() {
-      zeroOptionsLeft = false;
       options = std::vector<int>(optionsSize);
       std::iota(options.begin(), options.end(), 0);
 
