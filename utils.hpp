@@ -1,11 +1,25 @@
 #include <string>
 #include <vector>
+#include <iostream>
 
 int random(int min, int max);
 
-void print(std::string msg);
-void print(int msg);
-void print(float msg);
-void printVector(const std::vector<int>& vec, std::string name = "Vec");
-void printVector(const std::vector<std::string>& vec, std::string name = "Vec");
+template<typename T>
+T random(const std::vector<T>& vec) {
+  return vec[random(0, vec.size() - 1)];
+}
+
+template<typename T>
+void print(T msg) {
+  std::cout << msg << "\n";
+}
+
+template<typename T>
+void printVector(const std::vector<T>& vec, std::string name) {
+  std::cout << name << " = { ";
+  for (const T& item : vec) {
+    std::cout << item << " ";
+  }
+  std::cout << "}\n";
+}
 

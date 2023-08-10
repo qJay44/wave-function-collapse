@@ -2,21 +2,14 @@
 #include "SFML/System.hpp"
 #include "Cell.hpp"
 #include <cmath>
-#include <iterator>
-#include <memory>
 #include <filesystem>
-#include <iostream>
-#include <regex>
-#include <stdexcept>
 
-// TODO: Handle zero options
-// TODO: Refactor reset button functionality
-// TODO: Proper text scale
 
 float Cell::scaleX;
 float Cell::scaleY;
 int Cell::optionsSize;
 sf::Font Cell::font;
+bool Cell::zeroOptionsLeft;
 
 
 int main() {
@@ -27,7 +20,7 @@ int main() {
     "circuit/", "circuit-coding-train/"
   };
   std::vector<std::string> directions;
-  std::string folder = pathPrefix + tilesFolders[1];
+  std::string folder = pathPrefix + random(tilesFolders);
 
   for (const auto& entry : std::filesystem::directory_iterator(folder)) {
     directions.push_back(entry.path().string());
@@ -62,13 +55,12 @@ int main() {
   const int width = 900;
   const int height = 900;
 
-  bool allowSteps = true;
+  bool allowSteps = false;
   bool nextStep = true;
-  bool changeTilesFolderOnRestart = false;
-  bool showOptionsText = true;
-  bool drawGrid = true;
+  bool showOptionsText = false;
+  bool drawGrid = false;
 
-  const int DIM = 20;
+  const int DIM = 70;
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
@@ -116,7 +108,7 @@ int main() {
 
     uniqueEdgesSet.insert(tiles[i].getEdges());
 
-    for (int j = 1; j < 4; j++)
+    for (int j = 0; j < 4; j++)
       rotatedTiles.push_back(Tile::createRotatedVersion(tiles[i], j));
 
     Tile::removeDuplicates(uniqueEdgesSet, rotatedTiles);
@@ -171,7 +163,20 @@ int main() {
       cell.setPosition(i, j, w, h, DIM);
     }
   }
+
   std::deque<int> collapsedIndeces;
+
+  auto reset = [&] () {
+    // Clear grid
+    for (Cell& cell : grid)
+      cell.reset();
+
+    // Clear queued cells
+    collapsedIndeces.clear();
+
+    // Clear window
+    renderTexture.clear(sf::Color(30, 30, 30));
+  };
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -198,34 +203,8 @@ int main() {
             nextStep = true;
           }
 
-          if (sf::Keyboard::isKeyPressed(sf::Keyboard::R)) {
-            // Change texture set
-            if (changeTilesFolderOnRestart) {
-              folder = pathPrefix + tilesFolders[random(0, tilesFolders.size() - 1)];
-              for (int i = 0; i < tiles.size(); i++)
-                tiles[i].changeTexture(folder + directions[i]);
-            }
-
-            // Change texture scales (size)
-            textureSize = tiles.at(0).getTexture().getSize();
-
-            Cell::setCoreValues(
-              w / textureSize.x,
-              h / textureSize.y,
-              tiles.size(),
-              font
-            );
-
-            // Clear grid
-            for (Cell& cell : grid)
-              cell.reset();
-
-            // Clear window
-            renderTexture.clear(sf::Color(31, 30, 31));
-          }
-
-          if (sf::Keyboard::isKeyPressed(sf::Keyboard::I))
-            changeTilesFolderOnRestart = !changeTilesFolderOnRestart;
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
+            reset();
 
           if (sf::Keyboard::isKeyPressed(sf::Keyboard::O))
             showOptionsText = !showOptionsText;
@@ -234,18 +213,16 @@ int main() {
             drawGrid = !drawGrid;
 
         } else if (event.type == sf::Event::MouseButtonPressed) {
-            if (event.mouseButton.button == sf::Mouse::Left) {
-              int i = std::floor(event.mouseButton.x / w);
-              int j = std::floor(event.mouseButton.y / h);
+            int i = std::floor(event.mouseButton.x / w);
+            int j = std::floor(event.mouseButton.y / h);
 
+            if (event.mouseButton.button == sf::Mouse::Left) {
               grid[i + j * DIM].setRandomOption(true);
               collapsedIndeces.push_back(i + j * DIM);
               nextStep = true;
             }
-            if (event.mouseButton.button == sf::Mouse::Right) {
-              int i = std::floor(event.mouseButton.x / w);
-              int j = std::floor(event.mouseButton.y / h);
 
+            if (event.mouseButton.button == sf::Mouse::Right) {
               Cell& cell = grid[i + j * DIM];
 
               print("/////////////////////");
@@ -264,7 +241,7 @@ int main() {
       if (allowSteps)
         nextStep = false;
 
-      renderTextureSecondary.clear(sf::Color(31, 30, 31, 0));
+      renderTextureSecondary.clear(sf::Color(30, 30, 30, 0));
 
       std::vector<int> leastEntropyIndeces;
 
@@ -304,14 +281,21 @@ int main() {
       }
 
       if (leastEntropyIndeces.size() > 0) {
-          int index = leastEntropyIndeces[random(0, leastEntropyIndeces.size() - 1)];
+          int index = random(leastEntropyIndeces);
           grid[index].setRandomOption();
           collapsedIndeces.push_back(index);
       }
 
       while (!collapsedIndeces.empty()) {
-        Cell& cell = grid[collapsedIndeces.front()];
+        int index = collapsedIndeces.front();
         collapsedIndeces.pop_front();
+
+        if (index == -1) {
+          reset();
+          break;
+        }
+
+        Cell& cell = grid[index];
 
         cell.validateOptions(tiles, collapsedIndeces);
 

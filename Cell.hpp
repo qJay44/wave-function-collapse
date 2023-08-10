@@ -7,6 +7,7 @@ class Cell {
   static float scaleY;
   static int optionsSize;
   static sf::Font font;
+  static bool zeroOptionsLeft;
 
   sf::Sprite sprite;
   sf::Text optionsText;
@@ -22,7 +23,6 @@ class Cell {
       options = std::vector<int>(optionsSize);
       std::iota(options.begin(), options.end(), 0);
 
-      optionsText.setCharacterSize(30);
       optionsText.setFont(font);
       optionsText.setOutlineColor(sf::Color(31, 30, 31));
       optionsText.setOutlineThickness(3.f);
@@ -59,6 +59,11 @@ class Cell {
 
         if (neighbour->isCollapsed())
           collapsedIndeces.push_back(neighbour->index);
+
+        else if (zeroOptionsLeft) {
+          collapsedIndeces.push_front(-1);
+          break;
+        }
       }
     }
 
@@ -69,6 +74,7 @@ class Cell {
 
       sprite.setPosition({ x, y });
       optionsText.setPosition({ x, y });
+      optionsText.setCharacterSize(w * 0.5f);
     }
 
     void setNeighbours(std::map<int, Cell*> neighbours) {
@@ -82,7 +88,7 @@ class Cell {
       if (isCollapsed() && !forced)
         throw std::runtime_error("Cell already collapsed");
 
-      int option = options[random(0, options.size() - 1)];
+      int option = random(options);
       options.clear();
       options.push_back(option);
     }
@@ -101,7 +107,6 @@ class Cell {
 
     const sf::Text& prepareText() {
       optionsText.setString(std::to_string(options.size()));
-      optionsText.setScale(scaleX / 2.f, scaleY / 2.f);
       sf::FloatRect textRect = optionsText.getLocalBounds();
       optionsText.setOrigin(
         textRect.left + textRect.width / 2.f,
@@ -112,6 +117,7 @@ class Cell {
     }
 
     void reset() {
+      zeroOptionsLeft = false;
       options = std::vector<int>(optionsSize);
       std::iota(options.begin(), options.end(), 0);
 
@@ -130,7 +136,7 @@ class Cell {
 
     const bool isCollapsed() const {
       if (options.size() == 0)
-        throw std::runtime_error("0 options left");
+        zeroOptionsLeft = true;
 
       return options.size() == 1;
     }

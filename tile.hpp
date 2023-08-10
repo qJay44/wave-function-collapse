@@ -68,22 +68,22 @@ class Tile {
 
     void setRules(const std::vector<Tile>& tiles) {
       for (int i = 0; i < tiles.size(); i++) {
-        if (this == &tiles[i]) continue;
+        const Tile& tile = tiles[i];
 
         // connection for up
-        if (compareEdges(tiles[i].edges[2], edges[0]))
+        if (compareEdges(tile.edges[2], edges[0]))
           sides[NORTH].push_back(i);
 
         // connection for right
-        if (compareEdges(tiles[i].edges[3], edges[1]))
+        if (compareEdges(tile.edges[3], edges[1]))
           sides[EAST].push_back(i);
 
         // connection for down
-        if (compareEdges(tiles[i].edges[0], edges[2]))
+        if (compareEdges(tile.edges[0], edges[2]))
           sides[SOUTH].push_back(i);
 
         // connection for left
-        if (compareEdges(tiles[i].edges[1], edges[3]))
+        if (compareEdges(tile.edges[1], edges[3]))
           sides[WEST].push_back(i);
       }
     }
