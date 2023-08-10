@@ -1,8 +1,17 @@
 #include "SFML/Window.hpp"
 #include "SFML/System.hpp"
 #include "Cell.hpp"
+#include <cmath>
+#include <iterator>
 #include <memory>
+#include <filesystem>
+#include <iostream>
+#include <regex>
+#include <stdexcept>
 
+// TODO: Handle zero options
+// TODO: Refactor reset button functionality
+// TODO: Proper text scale
 
 float Cell::scaleX;
 float Cell::scaleY;
@@ -15,22 +24,51 @@ int main() {
 
   const std::string pathPrefix = "../../tiles/"; // Looking from "Build/[TYPE]/" directory
   const std::vector<std::string> tilesFolders {
-    "demo/", "demo-tracks/", "mountains/", "pipes/", "polka/", "roads/", "train-tracks/"
+    "circuit/", "circuit-coding-train/"
   };
-  const std::vector<std::string> directions {
-    "blank.png", "up.png", "right.png", "down.png", "left.png"
-  };
-  std::string folder = pathPrefix + tilesFolders[0];
+  std::vector<std::string> directions;
+  std::string folder = pathPrefix + tilesFolders[1];
+
+  for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+    directions.push_back(entry.path().string());
+  }
+
+  // 1.png, 10.png, 11.png, 2.png -> 1.png, 2.png, ..., 10.png, 11.png
+  std::sort(directions.begin(), directions.end(),
+    [] (const std::string& lhs, const std::string& rhs) {
+      if (lhs.size() < rhs.size())
+        return true;
+
+      if (lhs.size() == rhs.size())
+        switch (lhs.size()) {
+          // One digit + '.png' (4)
+          case 1 + 4:
+            return lhs[0] < rhs[0];
+
+          // Two digits + '.png' (4)
+          case 2 + 4:
+            std::string first;
+            first = lhs[0] + lhs[1];
+
+            std::string second;
+            second = rhs[0] + rhs[1];
+
+            return std::stoi(first) < std::stoi(second);
+        }
+
+      return false;
+    });
 
   const int width = 900;
   const int height = 900;
 
-  bool allowSteps = false;
+  bool allowSteps = true;
   bool nextStep = true;
   bool changeTilesFolderOnRestart = false;
-  bool showOptionsText = false;
+  bool showOptionsText = true;
+  bool drawGrid = true;
 
-  const int DIM = 60;
+  const int DIM = 20;
   const float w = (float) width / DIM;
   const float h = (float) height / DIM;
 
@@ -45,6 +83,7 @@ int main() {
   const sf::Texture &canvasTexture = renderTexture.getTexture();
   sf::Sprite canvasSprite(canvasTexture);
 
+  // Secondary layer for some tests drawables
   sf::RenderTexture renderTextureSecondary;
   renderTextureSecondary.create(width, height);
 
@@ -54,23 +93,48 @@ int main() {
 
   // Load images and set rules (all going clockwise) //
   std::vector<Tile> tiles {
-    Tile(folder + directions[0], { 0, 0, 0, 0 }),
-    Tile(folder + directions[1], { 1, 1, 0, 1 }),
-    Tile(folder + directions[2], { 1, 1, 1, 0 }),
-    Tile(folder + directions[3], { 0, 1, 1, 1 }),
-    Tile(folder + directions[4], { 1, 0, 1, 1 }),
+    Tile(directions[0],   {"AAA", "AAA", "AAA", "AAA"}),
+    Tile(directions[1],   {"BBB", "BBB", "BBB", "BBB"}),
+    Tile(directions[2],   {"BBB", "BCB", "BBB", "BBB"}),
+    Tile(directions[3],   {"BBB", "BDB", "BBB", "BDB"}),
+    Tile(directions[4],   {"ABB", "BCB", "BBA", "AAA"}),
+    Tile(directions[5],   {"ABB", "BBB", "BBB", "BBA"}),
+    Tile(directions[6],   {"BBB", "BCB", "BBB", "BCB"}),
+    Tile(directions[7],   {"BDB", "BCB", "BDB", "BCB"}),
+    Tile(directions[8],   {"BDB", "BBB", "BCB", "BBB"}),
+    Tile(directions[9],   {"BCB", "BCB", "BBB", "BCB"}),
+    Tile(directions[10],  {"BCB", "BCB", "BCB", "BCB"}),
+    Tile(directions[11],  {"BCB", "BCB", "BBB", "BBB"}),
+    Tile(directions[12],  {"BBB", "BCB", "BBB", "BCB"})
   };
 
-  // Use any texture since all cells will have the same size
-  sf::Vector2u textureSize = tiles.at(0).getTexture().getSize();
+  // Add unique rotated versions of tiles
+  const int initialTileCount = tiles.size();
+  for (int i = 0; i < initialTileCount; i++) {
+    std::set<std::vector<std::string>> uniqueEdgesSet;
+    std::vector<Tile> rotatedTiles;
+
+    uniqueEdgesSet.insert(tiles[i].getEdges());
+
+    for (int j = 1; j < 4; j++)
+      rotatedTiles.push_back(Tile::createRotatedVersion(tiles[i], j));
+
+    Tile::removeDuplicates(uniqueEdgesSet, rotatedTiles);
+    tiles.insert(tiles.end(), rotatedTiles.begin(), rotatedTiles.end());
+  }
 
   // Generate the adjancency rules based on edges
   for (Tile& tile : tiles)
     tile.setRules(tiles);
 
+  // Use any texture since all cells will have the same size
+  sf::Vector2u textureSize = tiles.at(0).getTexture().getSize();
+
+  // Font for some test text
   sf::Font font;
   font.loadFromFile("Minecraft rus.ttf");
 
+  // Set generic fields
   Cell::setCoreValues(
     w / textureSize.x,
     h / textureSize.y,
@@ -107,6 +171,7 @@ int main() {
       cell.setPosition(i, j, w, h, DIM);
     }
   }
+  std::deque<int> collapsedIndeces;
 
   // run the program as long as the window is open
   while (window.isOpen())
@@ -165,17 +230,21 @@ int main() {
           if (sf::Keyboard::isKeyPressed(sf::Keyboard::O))
             showOptionsText = !showOptionsText;
 
+          if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
+            drawGrid = !drawGrid;
+
         } else if (event.type == sf::Event::MouseButtonPressed) {
             if (event.mouseButton.button == sf::Mouse::Left) {
-              int i = event.mouseButton.x / w;
-              int j = event.mouseButton.y / h;
+              int i = std::floor(event.mouseButton.x / w);
+              int j = std::floor(event.mouseButton.y / h);
 
               grid[i + j * DIM].setRandomOption(true);
+              collapsedIndeces.push_back(i + j * DIM);
               nextStep = true;
             }
             if (event.mouseButton.button == sf::Mouse::Right) {
-              int i = event.mouseButton.x / w;
-              int j = event.mouseButton.y / h;
+              int i = std::floor(event.mouseButton.x / w);
+              int j = std::floor(event.mouseButton.y / h);
 
               Cell& cell = grid[i + j * DIM];
 
@@ -197,9 +266,7 @@ int main() {
 
       renderTextureSecondary.clear(sf::Color(31, 30, 31, 0));
 
-      int lastEntropy = tiles.size();
       std::vector<int> leastEntropyIndeces;
-      std::deque<int> collapsedIndeces;
 
       for (int j = 0; j < DIM; j++) {
         for (int i = 0; i < DIM; i++) {
@@ -208,6 +275,7 @@ int main() {
 
           if (cell.isCollapsed()) continue;
 
+          static int lastEntropy = tiles.size();
           int currentEntropy = cell.getEntropy();
 
           // Add cells with least entropy
@@ -219,8 +287,19 @@ int main() {
           } else if(currentEntropy == lastEntropy)
             leastEntropyIndeces.push_back(index);
 
-          if (showOptionsText && cell.getEntropy() < 5)
-            renderTextureSecondary.draw(*cell.prepareText());
+          if (showOptionsText && cell.getEntropy() < tiles.size())
+            renderTextureSecondary.draw(cell.prepareText());
+
+          if (drawGrid) {
+            sf::RectangleShape cellOutline;
+            cellOutline.setPosition({ i * w, j * h });
+            cellOutline.setSize({ w, h });
+            cellOutline.setOutlineThickness(1.f);
+            cellOutline.setOutlineColor(sf::Color(90, 90, 90));
+            cellOutline.setFillColor(sf::Color::Transparent);
+
+            renderTextureSecondary.draw(cellOutline);
+          }
         }
       }
 
@@ -237,14 +316,13 @@ int main() {
         cell.validateOptions(tiles, collapsedIndeces);
 
         if (!cell.isDrawn()) {
-          const sf::Texture& tileTexture = tiles[cell.getSingleOption()].getTexture();
-          const sf::Sprite* sprite = cell.prepareSprite(tileTexture);
+            const Tile& tile = tiles[cell.getSingleOption()];
+            const sf::Sprite& sprite = cell.prepareSprite(tile);
 
-          renderTexture.draw(*sprite);
+            renderTexture.draw(sprite);
         }
       }
     }
-
     renderTexture.display();
     renderTextureSecondary.display();
 

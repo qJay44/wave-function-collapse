@@ -17,11 +17,22 @@ void print(std::string msg) {
 void print(int msg) {
   std::cout << std::to_string(msg) << "\n";
 }
+void print(float msg) {
+  std::cout << std::to_string(msg) << "\n";
+}
 
-void printVector(const std::vector<int>& vec, std::string name = "Vector") {
+void printVector(const std::vector<int>& vec, std::string name) {
   std::cout << name << " = { ";
   for (const int& item : vec) {
     std::cout << std::to_string(item) << " ";
+  }
+  std::cout << "}\n";
+}
+
+void printVector(const std::vector<std::string>& vec, std::string name) {
+  std::cout << name << " = { ";
+  for (const std::string& item : vec) {
+    std::cout << item << " ";
   }
   std::cout << "}\n";
 }
